@@ -19,15 +19,18 @@ from gui import win32
 from gui.iconbutton import IconButton
 from gui.tooltip import Tooltip
 
-#: 逻辑尺寸与间距（全部是 4 的倍数，`GROUP_GAP` 例外：它是 2n 的推导值）
-WINDOW_WIDTH = 420
+#: 逻辑尺寸与间距（全部是 4 的倍数；`GROUP_GAP` = 4n，也是「关闭」的左间距）
+#: 窗口宽 432：4n 间距下「主题 + 语言 + 关闭」需要 384 逻辑宽（152 + 40 + 98 + 40 + 54），
+#: 420 减去左右各 24 只剩 372，差 12 —— 要么窗口宽 12、要么左右边距缩到 16。
+#: 取前者：关闭按钮的位置不动、左右边距仍然都是 24。
+WINDOW_WIDTH = 432
 PAD_X = 24
 PAD_TOP = 20
 PAD_BOTTOM = 18
 LABEL_GAP = 12      #: 区块标题与控件行之间
 FOOTER_GAP = 20     #: 设置区与「关闭」之间
 ICON_GAP = 10       #: n：同一个类里控件之间的间距
-GROUP_GAP = 2 * ICON_GAP   #: 类与类之间 = 2n
+GROUP_GAP = 4 * ICON_GAP   #: 类与类之间 = 4n（「关闭」与语言类之间也用这个值）
 
 _THEME_CHOICES = (
     ("system", "monitor", ("跟随系统", "Follow system")),
@@ -71,12 +74,16 @@ class SettingsWindow:
         body.pack(fill="both", expand=True)
         body.columnconfigure(0, weight=1)
 
-        classes = ttk.Frame(body)
-        classes.grid(row=0, column=0, sticky="w")
+        # 主题类、语言类、关闭放进同一个网格：
+        #   col0 = 主题类，col1 = 语言类（左间距 4n），col2 = 关闭（左间距 4n）
+        # grid 的列从上一格的右边缘量起，所以「关闭」的左边缘恰好是
+        # 「语言」类右边缘 + 4n —— 两个横向间距因此必然相等。
+        layout = ttk.Frame(body)
+        layout.grid(row=0, column=0, sticky="w")
 
         side = px(44)
         # ---- 主题类 ------------------------------------------------------
-        theme_block = ttk.Frame(classes)
+        theme_block = ttk.Frame(layout)
         theme_block.grid(row=0, column=0, sticky="w")
         ttk.Label(theme_block, text=L("主题", "Theme"),
                   style="Section.TLabel").grid(row=0, column=0, sticky="w")
@@ -101,9 +108,9 @@ class SettingsWindow:
                                           metrics=metrics, fonts=fonts))
             self.buttons[value] = button
 
-        # ---- 语言类（在主题右边，类与类之间 2n）---------------------------
+        # ---- 语言类（在主题右边，类与类之间 4n）---------------------------
         current = i18n.resolve(self.language)
-        lang_block = ttk.Frame(classes)
+        lang_block = ttk.Frame(layout)
         lang_block.grid(row=0, column=1, sticky="w", padx=(px(GROUP_GAP), 0))
         ttk.Label(lang_block, text=L("语言", "Language"),
                   style="Section.TLabel").grid(row=0, column=0, sticky="w")
@@ -122,12 +129,11 @@ class SettingsWindow:
             button.grid(row=0, column=index, padx=(0 if index == 0 else px(ICON_GAP), 0))
             self.lang_buttons[value] = button
 
-        # ---- 关闭 --------------------------------------------------------
-        footer = ttk.Frame(body)
-        footer.grid(row=1, column=0, sticky="ew", pady=(px(FOOTER_GAP), 0))
-        footer.columnconfigure(0, weight=1)
-        ttk.Button(footer, text=L("关闭", "Close"), style="Accent.TButton",
-                   command=self.close).grid(row=0, column=1, sticky="e")
+        # ---- 关闭（横向间距与类之间一致：语言类右边缘 + 4n）----------------
+        ttk.Button(layout, text=L("关闭", "Close"), style="Accent.TButton",
+                   command=self.close).grid(
+            row=1, column=2, sticky="w",
+            padx=(px(GROUP_GAP), 0), pady=(px(FOOTER_GAP), 0))
 
         win32.set_window_icon(window, icon_path)
         win32.set_dark_titlebar(window, palette.is_dark)
