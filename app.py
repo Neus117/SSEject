@@ -92,7 +92,7 @@ def run_diagnostics(output_path: str) -> int:
         # 第二遍打开"显示所有磁盘"，验证表格填充路径（没有可移动磁盘的机器上
         # 第一遍必然是 0 行，只靠它证明不了表格能填）
         app.show_all = True
-        app.btn_show_all.state(["selected"])
+        app.btn_show_all.set_selected(True)  # Canvas 按钮：不是 ttk 的 .state()
         app.refresh_disks()
         deadline = time.monotonic() + 20
         while app.busy and time.monotonic() < deadline:

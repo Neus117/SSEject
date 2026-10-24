@@ -28,6 +28,31 @@ gdi32 = ctypes.windll.gdi32
 
 WM_SETICON = 0x0080
 
+# 句柄必须显式声明成 64 位：不声明时 ctypes 按 C int 取返回值，DC/位图句柄会被
+# 截断成 32 位（实测得到负数），随后传给 PrintWindow 直接 TypeError，或者更糟——
+# 悄悄操作到别的 DC 上。
+user32.GetDC.argtypes = [wintypes.HWND]
+user32.GetDC.restype = ctypes.c_void_p
+user32.ReleaseDC.argtypes = [wintypes.HWND, ctypes.c_void_p]
+user32.PrintWindow.argtypes = [wintypes.HWND, ctypes.c_void_p, wintypes.UINT]
+gdi32.CreateCompatibleDC.argtypes = [ctypes.c_void_p]
+gdi32.CreateCompatibleDC.restype = ctypes.c_void_p
+gdi32.CreateCompatibleBitmap.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_int]
+gdi32.CreateCompatibleBitmap.restype = ctypes.c_void_p
+gdi32.SelectObject.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+gdi32.SelectObject.restype = ctypes.c_void_p
+gdi32.DeleteObject.argtypes = [ctypes.c_void_p]
+gdi32.DeleteDC.argtypes = [ctypes.c_void_p]
+gdi32.BitBlt.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_int, ctypes.c_int,
+                         ctypes.c_int, ctypes.c_void_p, ctypes.c_int, ctypes.c_int,
+                         wintypes.DWORD]
+gdi32.GetDIBits.argtypes = [ctypes.c_void_p, ctypes.c_void_p, wintypes.UINT,
+                            wintypes.UINT, ctypes.c_void_p, ctypes.c_void_p,
+                            wintypes.UINT]
+user32.SendMessageW.argtypes = [wintypes.HWND, wintypes.UINT, wintypes.WPARAM,
+                                wintypes.LPARAM]
+user32.SendMessageW.restype = ctypes.c_void_p
+
 
 class RECT(ctypes.Structure):
     _fields_ = [("left", wintypes.LONG), ("top", wintypes.LONG),
@@ -109,12 +134,14 @@ def _grab(hwnd: int, rect: RECT, foreground: bool = False) -> Tuple[Image.Image,
     try:
         source = "printwindow"
         ok = user32.PrintWindow(wintypes.HWND(hwnd), mem_dc, 2)  # PW_RENDERFULLCONTENT
-        if not ok:
-            source = "bitblt"
         img = _to_image(mem_dc, bitmap, width, height)
-        # DWM 合成的窗口用 PrintWindow 经常拿到一片空白/残帧：全同色就改抓屏幕
-        colors = img.getcolors(maxcolors=64)
-        if source == "printwindow" and (colors is None or len(colors) <= 3):
+        # PrintWindow 失败时拿到的是纯色（常见全黑/全白）画面，这时才退回抓屏幕。
+        # 判"空白"只能用"整个画面只有一种颜色"：早先写成
+        # ``getcolors(maxcolors=64)`` 并把 ``None`` 当全同色——而颜色数超过 64 时
+        # getcolors 恰好返回 None，于是**任何彩色窗口都被判失败**、改抓屏幕；
+        # 窗口一旦不在屏幕上或被挡住，抓到的就是别人的画面（实测：窗口在屏幕外时
+        # 拿到一片纯白，却报告 source=printwindow 之外的东西）。
+        if not ok or _is_blank(img):
             source = "bitblt"
         if source == "bitblt":
             if foreground:
@@ -129,6 +156,11 @@ def _grab(hwnd: int, rect: RECT, foreground: bool = False) -> Tuple[Image.Image,
         gdi32.DeleteObject(bitmap)
         gdi32.DeleteDC(mem_dc)
         user32.ReleaseDC(0, screen_dc)
+
+
+def _is_blank(img: Image.Image) -> bool:
+    """整个画面只有一种颜色（PrintWindow 拿不到内容时的典型结果）。"""
+    return all(low == high for low, high in img.getextrema())
 
 
 def _to_image(dc: int, bitmap: int, width: int, height: int) -> Image.Image:
