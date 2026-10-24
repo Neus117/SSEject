@@ -201,9 +201,10 @@ class Fonts:
                                    size=FONT_BODY_PT, weight="bold")
         self.bold = tkfont.Font(root=root, name="QfeBold", family=self.family,
                                 size=FONT_BODY_PT, weight="bold")
-        # 单字符图标（如帮助的"?"）：字号按图标视觉高度给，和齿轮等大
+        # 单字符图标（如帮助的“?”）：字号按图标视觉高度给，和齿轮等大。
+        # 不加粗：加粗的笔画比相邻图标的描边（0.10 图标边长）粗一截，看着比齿轮重。
         self.glyph = tkfont.Font(root=root, name="QfeGlyph", family=self.family,
-                                 size=-self._glyph_pixels(root), weight="bold")
+                                 size=-self._glyph_pixels(root), weight="normal")
         self.mono = tkfont.Font(root=root, name="QfeMono", family="Consolas",
                                 size=FONT_SMALL_PT)
         # 让没有显式指定字体的控件（tk.Text / 原生对话框）跟随同一套
