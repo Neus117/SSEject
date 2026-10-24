@@ -32,22 +32,24 @@ def _install_excepthook():
 
     def hook(exc_type, exc_value, exc_tb):
         text = "".join(traceback.format_exception(exc_type, exc_value, exc_tb))
-        applog.write("error", "未捕获异常：\n" + text)
+        applog.write("error", "Uncaught exception:\n" + text)
         if reporting["active"]:
             return
         reporting["active"] = True
         try:
             message = (f"{exc_value}\n\n"
-                       "详细信息已写入日志文件（帮助 → 打开日志，或界面上的「打开日志」）。")
+                       + L("详细信息已写入日志文件（帮助 → 打开日志，或界面上的「打开日志」）。",
+                           "Details were written to the log file (Help → Open log, or the "
+                           "“Open log” button in the window)."))
             dialogs = active_dialogs()
             if dialogs is not None:
                 try:
-                    dialogs.error("程序出错", message)
+                    dialogs.error(L("程序出错", "Something went wrong"), message)
                     return
                 except Exception:
                     pass
             try:
-                messagebox.showerror("程序出错", message)
+                messagebox.showerror(L("程序出错", "Something went wrong"), message)
             except Exception:  # pragma: no cover
                 pass
         finally:
