@@ -208,8 +208,7 @@ class Dialogs:
         window.bind("<Escape>", lambda _event: self._finish(window, result, buttons[-1][1]))
 
         win32.set_window_icon(window, self.icon_path)
-        if palette.is_dark:
-            win32.set_dark_titlebar(window, True)
+        win32.set_dark_titlebar(window, palette.is_dark)
 
         self._place_centered(window)
         window.deiconify()
@@ -259,8 +258,7 @@ class Dialogs:
             if not window.winfo_exists():
                 return
             win32.set_window_icon(window, self.icon_path)
-            if self.palette.is_dark:
-                win32.set_dark_titlebar(window, True)
+            win32.set_dark_titlebar(window, self.palette.is_dark)
             default_button.focus_set()
         except tk.TclError:  # pragma: no cover
             pass

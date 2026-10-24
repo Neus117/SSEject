@@ -241,6 +241,8 @@ class MainWindow:
         self.palette = theme.pick_palette(self._theme_override())
         theme.apply_ttk_styles(self.root, self.palette, self.fonts, self.metrics)
         self._configure_icon_styles()
+        self.dialogs = Dialogs(self.root, palette=self.palette, metrics=self.metrics,
+                               fonts=self.fonts, icon_path=self.icon_path)
         for child in self.root.winfo_children():
             child.destroy()
         self._build_ui()

@@ -63,12 +63,16 @@ def _refresh(draw, box, ink, _background):
     draw.arc((cx - radius, cy - radius, cx + radius, cy + radius),
              start=40, end=320, fill=ink, width=int(round(width)))
     half = width / 2.0
-    right_x = cx + radius
-    top_y = cy - radius * 0.72
-    draw.line((cx + size * 0.02, top_y, right_x, top_y), fill=ink, width=int(round(width)))
-    draw.line((right_x, top_y, right_x, cy + size * 0.02), fill=ink, width=int(round(width)))
-    for px_, py_ in ((cx + size * 0.02, top_y), (right_x, top_y),
-                     (right_x, cy + size * 0.02)):
+    # 横线从弧的端点开始，避免穿过圆环（之前看起来像字母 G）
+    end_angle = math.radians(320)
+    start_x = cx + radius * math.cos(end_angle)
+    top_y = cy + radius * math.sin(end_angle)
+    right_x = cx + radius + size * 0.075
+    draw.line((start_x, top_y, right_x, top_y), fill=ink, width=int(round(width)))
+    draw.line((right_x, top_y, right_x, top_y + size * 0.185), fill=ink,
+              width=int(round(width)))
+    for px_, py_ in ((start_x, top_y), (right_x, top_y),
+                     (right_x, top_y + size * 0.185)):
         draw.ellipse((px_ - half, py_ - half, px_ + half, py_ + half), fill=ink)
 
 
