@@ -217,10 +217,11 @@ class Fonts:
                                  size=-self.glyph_px, weight=glyph_weight)
         self.mono = tkfont.Font(root=root, name="QfeMono", family="Consolas",
                                 size=FONT_SMALL_PT)
-        # 语言按钮的“CN / EN”：正文字体 + 加粗，字号比正文大一号，
-        # 让两三个字母的墨迹高度和旁边 20 逻辑像素的主题图标齐平
+        # 语言按钮的“CN / EN”：正文字体 + 加粗。字号按**墨迹**对齐主题图标：
+        # +4pt（14pt）时 CN/EN 墨迹 43×25，比图标（24~35 宽）大一圈；
+        # +2pt（12pt）是 36×22，与图标同级，所以用 +2。
         self.lang_text = tkfont.Font(root=root, name="QfeLang", family=self.family,
-                                     size=FONT_BODY_PT + 4, weight="bold")
+                                     size=FONT_BODY_PT + 2, weight="bold")
         # 让没有显式指定字体的控件（tk.Text / 原生对话框）跟随同一套
         for name in ("TkDefaultFont", "TkTextFont", "TkMenuFont", "TkHeadingFont"):
             try:
