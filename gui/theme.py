@@ -193,6 +193,8 @@ class Fonts:
                                  size=FONT_SMALL_PT)
         self.section = tkfont.Font(root=root, name="QfeSection", family=self.family,
                                    size=FONT_BODY_PT, weight="bold")
+        self.bold = tkfont.Font(root=root, name="QfeBold", family=self.family,
+                                size=FONT_BODY_PT, weight="bold")
         self.mono = tkfont.Font(root=root, name="QfeMono", family="Consolas",
                                 size=FONT_SMALL_PT)
         # 让没有显式指定字体的控件（tk.Text / 原生对话框）跟随同一套
@@ -303,6 +305,25 @@ def apply_ttk_styles(root: tk.Misc, palette: Palette, fonts: Fonts,
         lightcolor=palette.surface,
         darkcolor=palette.surface,
         padding=(px(10), px(5)),
+    )
+    # 加粗版：ALL 与帮助的"?"用同一款，高度与其它工具按钮完全一致
+    style.configure(
+        "ToolBold.TButton",
+        width=0,
+        background=palette.surface,
+        foreground=palette.text,
+        bordercolor=palette.border,
+        lightcolor=palette.surface,
+        darkcolor=palette.surface,
+        padding=(px(10), px(5)),
+        font=fonts.bold,
+    )
+    style.map(
+        "ToolBold.TButton",
+        background=[("disabled", palette.background), ("pressed", palette.surface_hover),
+                    ("active", palette.surface_hover)],
+        foreground=[("disabled", palette.text_disabled)],
+        bordercolor=[("disabled", palette.border), ("active", palette.border_strong)],
     )
     style.map(
         "Tool.TButton",

@@ -128,7 +128,7 @@ class MainWindow:
         px = self.metrics.px
         palette = self.palette
         style = ttk.Style(self.root)
-        probe = ttk.Button(self.root, text="ALL", style="Tool.TButton")
+        probe = ttk.Button(self.root, text="ALL", style="ToolBold.TButton")
         probe.update_idletasks()
         target_height = probe.winfo_reqheight()
         probe.destroy()
@@ -184,6 +184,7 @@ class MainWindow:
                 "hover": self._load_icon(icon, size, hover),
             },
             command=command, width=width, height=height, fonts=self.fonts,
+            accent=accent,
         )
 
     def _build_header(self, parent: ttk.Frame, px) -> None:
@@ -205,7 +206,7 @@ class MainWindow:
         tools = ttk.Frame(header)
         tools.grid(row=0, column=3, sticky="e")
 
-        self.btn_show_all = ttk.Button(tools, text="ALL", style="Tool.TButton",
+        self.btn_show_all = ttk.Button(tools, text="ALL", style="ToolBold.TButton",
                                        command=self._toggle_show_all)
         self.btn_show_all.grid(row=0, column=0, padx=(0, px(8)))
         self.btn_refresh = self._icon_button(tools, "refresh", command=self.refresh_disks)
@@ -214,7 +215,8 @@ class MainWindow:
         self.btn_eject = self._icon_button(tools, "eject", accent=True,
                                            command=lambda: self._start_action("eject"))
         self.btn_eject.grid(row=0, column=2, padx=(0, px(8)))
-        self.btn_help = self._icon_button(tools, "help", command=self.show_help)
+        self.btn_help = ttk.Button(tools, text="?", style="ToolBold.TButton",
+                                   command=self.show_help)
         self.btn_help.grid(row=0, column=3, padx=(0, px(8)))
         self.btn_settings = self._icon_button(tools, "gear", command=self._open_settings)
         self.btn_settings.grid(row=0, column=4)
@@ -243,7 +245,6 @@ class MainWindow:
         self._build_ui()
         self._refresh_chrome()
         self._restore_log()
-        self.refresh_disks()
 
     def _restore_log(self) -> None:
         history, self._log_history = self._log_history, []

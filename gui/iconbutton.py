@@ -24,14 +24,17 @@ class IconButton(tk.Canvas):
 
     def __init__(self, master, *, palette, metrics, icon_paths: dict,
                  command: Callable[[], None], width: int, height: int,
-                 tooltip: Optional[str] = None, fonts=None, selected: bool = False):
+                 tooltip: Optional[str] = None, fonts=None, selected: bool = False,
+                 accent: bool = False):
         super().__init__(master, width=width, height=height,
-                         background=palette.surface, highlightthickness=0, bd=0,
+                         background=palette.accent if accent else palette.surface,
+                         highlightthickness=0, bd=0,
                          takefocus=True)
         self.palette = palette
         self.command = command
         self.paths = icon_paths          # {"normal": path, "hover": path}
         self.selected = selected
+        self.accent = accent
         self.enabled = True
         self._hover = False
         self._images = {}
@@ -59,7 +62,10 @@ class IconButton(tk.Canvas):
 
     def _paint(self) -> None:
         self.delete("all")
-        surface = self.palette.surface_hover if self._hover else self.palette.surface
+        if self.accent:
+            surface = self.palette.accent_hover if self._hover else self.palette.accent
+        else:
+            surface = self.palette.surface_hover if self._hover else self.palette.surface
         self.configure(background=surface)
         self.create_rectangle(0, 0, int(self["width"]), int(self["height"]),
                               fill=surface, outline="")
@@ -94,4 +100,5 @@ class IconButton(tk.Canvas):
 
     def set_selected(self, selected: bool) -> None:
         self.selected = selected
+        self.accent = accent
         self._paint()

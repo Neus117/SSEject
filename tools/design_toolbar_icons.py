@@ -54,23 +54,25 @@ def _gear(draw, box, ink, background):
 
 
 def _refresh(draw, box, ink, _background):
+    """参考图：粗圆环（缺口在右）+ 右上折角箭头（竖＋横两段粗线）。"""
     x0, y0, x1, y1 = box
     size = x1 - x0
     cx, cy = (x0 + x1) / 2.0, (y0 + y1) / 2.0
-    radius = size * 0.325
-    width = max(1.4, size * 0.130)
+    radius = size * 0.335
+    width = max(1.6, size * 0.135)
     draw.arc((cx - radius, cy - radius, cx + radius, cy + radius),
-             start=305, end=245, fill=ink, width=int(round(width)))
-    angle = math.radians(305)
-    px_, py_ = cx + radius * math.cos(angle), cy + radius * math.sin(angle)
-    tx, ty = -math.sin(angle), math.cos(angle)
-    nx, ny = math.cos(angle), math.sin(angle)
-    head_len, head_half = size * 0.215, size * 0.115
-    draw.polygon([
-        (px_ + nx * head_half, py_ + ny * head_half),
-        (px_ - nx * head_half, py_ - ny * head_half),
-        (px_ + tx * head_len, py_ + ty * head_len),
-    ], fill=ink)
+             start=325, end=215, fill=ink, width=int(round(width)))
+    half = width / 2.0
+    # 箭头：右侧竖线 + 上端向左的横线，构成参考图里的折角
+    right_x = cx + radius + size * 0.055
+    top_y = cy - size * 0.285
+    draw.line((right_x, top_y, right_x, cy + size * 0.02), fill=ink,
+              width=int(round(width)))
+    draw.line((cx + size * 0.055, top_y, right_x, top_y), fill=ink,
+              width=int(round(width)))
+    for px_, py_ in ((right_x, top_y), (right_x, cy + size * 0.02),
+                     (cx + size * 0.055, top_y)):
+        draw.ellipse((px_ - half, py_ - half, px_ + half, py_ + half), fill=ink)
 
 
 def _help(draw, box, ink, _background):
@@ -101,8 +103,8 @@ def _eject(draw, box, ink, _background=None, app_icon=None):
     x0, y0, x1, y1 = box
     size = x1 - x0
     apex = (x0 + size * 0.50, y0 + size * 0.125)
-    left = (x0 + size * 0.155, y0 + size * 0.545)
-    right = (x0 + size * 0.845, y0 + size * 0.545)
+    left = (x0 + size * 0.155, y0 + size * 0.500)
+    right = (x0 + size * 0.845, y0 + size * 0.500)
     cx = (apex[0] + left[0] + right[0]) / 3.0
     cy = (apex[1] + left[1] + right[1]) / 3.0
     inner = [(cx + (x - cx) * 0.93, cy + (y - cy) * 0.93) for x, y in (apex, left, right)]
