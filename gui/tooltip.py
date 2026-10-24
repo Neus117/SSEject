@@ -42,6 +42,11 @@ class Tooltip:
         self._after_id = None
         if self._window is not None or not self.text:
             return
+        try:
+            if not self.widget.winfo_exists():
+                return          # 控件已被销毁（换主题/语言时），别用死句柄建窗口
+        except tk.TclError:  # pragma: no cover
+            return
         px = self.metrics.px
         window = tk.Toplevel(self.widget)
         window.wm_overrideredirect(True)

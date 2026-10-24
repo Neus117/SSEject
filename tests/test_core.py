@@ -325,3 +325,60 @@ class WinprocTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DiskSnapshotTest(unittest.TestCase):
+    """启动快照：写—读要能还原同样的磁盘信息，坏文件必须当作"没有"。"""
+
+    def setUp(self):
+        import tempfile
+        self._temp = tempfile.TemporaryDirectory()
+        self._env = mock.patch.dict(os.environ, {"LOCALAPPDATA": self._temp.name})
+        self._env.start()
+
+    def tearDown(self):
+        self._env.stop()
+        self._temp.cleanup()
+
+    @staticmethod
+    def _disk(index=2, letters=("H",), external=True):
+        return disk_query.DiskInfo(
+            index=index, model="Seagate Portable", size_bytes=2 * 1024 ** 4,
+            letters=letters, is_external=external, pnp_id="USBSTOR\\DISK&VEN_X",
+            interface="USB", media="EXTERNAL HARD DISK MEDIA", bus_type="USB",
+            is_offline=False,
+        )
+
+    def test_roundtrip(self):
+        disk = self._disk()
+        disk_query.save_snapshot([disk])
+        loaded = disk_query.load_snapshot()
+        self.assertEqual(len(loaded), 1)
+        self.assertEqual(loaded[0].index, disk.index)
+        self.assertEqual(loaded[0].model, disk.model)
+        self.assertEqual(loaded[0].size_bytes, disk.size_bytes)
+        self.assertEqual(loaded[0].letters, disk.letters)
+        self.assertEqual(loaded[0].is_external, disk.is_external)
+        self.assertEqual(loaded[0].pnp_id, disk.pnp_id)
+        self.assertEqual(loaded[0].bus_type, disk.bus_type)
+        self.assertEqual(loaded[0].is_offline, disk.is_offline)
+
+    def test_garbage_is_ignored(self):
+        path = disk_query.snapshot_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("{not json", encoding="utf-8")
+        self.assertEqual(disk_query.load_snapshot(), [])
+
+    def test_wrong_version_is_ignored(self):
+        path = disk_query.snapshot_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({"version": 99, "disks": []}), encoding="utf-8")
+        self.assertEqual(disk_query.load_snapshot(), [])
+
+    def test_seed_cache_makes_disk_findable(self):
+        disk = self._disk(index=7)
+        disk_query.clear_cache()
+        disk_query.seed_cache([disk])
+        self.assertIs(disk_query.find_disk_by_index(7), disk)
+        disk_query.clear_cache()
+        self.assertIsNone(disk_query.find_disk_by_index(7))

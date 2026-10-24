@@ -86,7 +86,8 @@ class MainWindow:
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
         self.root.bind("<F5>", lambda _event: self.refresh_disks())
         self._poll_queue()
-        self.refresh_disks()
+        self._paint_snapshot()      # 先按上次的快照把列表画出来（不写日志）
+        self.refresh_disks()        # 再后台真查一遍，完成后替换
 
     # ------------------------------------------------------------------ UI --
     def _build_ui(self) -> None:
@@ -247,6 +248,21 @@ class MainWindow:
         if getattr(self, "_last_disks", None) is not None:
             self._refresh_done(self._last_disks, [], quiet=True)
 
+    def _paint_snapshot(self) -> None:
+        """启动时先用上一次查询的快照填列表；真查询回来后会被替换。
+
+        为什么要这么做：一次查询 1.2~1.4 s（开机后第一次 4.3 s），窗口 0.8 s 就出来了，
+        用户却要对着空列表等。快照把这段等待变成 ~0.05 s；刷新期间按钮全部禁用，
+        所以不存在“对着旧数据误操作”的窗口。
+        """
+        disks = disk_query.load_snapshot()
+        if not disks:
+            return
+        disk_query.seed_cache(disks)          # 让 find_disk_by_index 也能命中快照
+        visible = disks if self.show_all else [d for d in disks if d.is_external]
+        if visible:
+            self._refresh_done(visible, [], quiet=True)
+
     def _restore_log(self) -> None:
         history, self._log_history = self._log_history, []
         for message, level, with_time in history:
@@ -395,6 +411,8 @@ class MainWindow:
 
     # -------------------------------------------------------------- 刷新 --
     def _toggle_show_all(self) -> None:
+        if self.busy:
+            return          # 刷新中：切了也不会重查，列表会和开关对不上
         self.show_all = not self.show_all
         self.btn_show_all.set_selected(self.show_all)
         self.refresh_disks()
@@ -439,6 +457,8 @@ class MainWindow:
                       recovered: Optional[List[int]] = None,
                       quiet: bool = False) -> None:
         self._last_disks = list(disks)
+        if not quiet:
+            disk_query.save_snapshot(disk_query.cached_disks())
         for index in recovered or []:
             self._log(L(f"磁盘 {index} 之前处于脱机状态，已自动恢复联机",
                           f"Disk {index} was left offline and has been set online again"), "ok")
@@ -669,7 +689,11 @@ class MainWindow:
 
     # -------------------------------------------------------------- 日志 --
     def _log(self, message: str, level: str = "info", *, with_time: bool = True) -> None:
+        # 历史只留最近 LOG_MAX_LINES 条：换主题/语言要重放整段历史，
+        # 长会话里不设上限会变成 O(n²) 的重放和无限增长的内存
         self._log_history.append((message, level, with_time))
+        if len(self._log_history) > LOG_MAX_LINES:
+            del self._log_history[:-LOG_MAX_LINES]
         applog.write(level, message)
         if not self._alive:
             return
