@@ -41,7 +41,7 @@ def _gear(draw, box, ink, background):
     x0, y0, x1, y1 = box
     size = x1 - x0
     cx, cy = (x0 + x1) / 2.0, (y0 + y1) / 2.0
-    root, tip = size * 0.300, size * 0.430
+    root, tip = size * 0.270, size * 0.387
     points = []
     for index in range(8):
         centre = 2.0 * math.pi * index / 8
@@ -49,7 +49,7 @@ def _gear(draw, box, ink, background):
             angle = centre + offset
             points.append((cx + radius * math.cos(angle), cy + radius * math.sin(angle)))
     draw.polygon(points, fill=ink)
-    hole = size * 0.135
+    hole = size * 0.122
     draw.ellipse((cx - hole, cy - hole, cx + hole, cy + hole), fill=background)
 
 
@@ -59,7 +59,7 @@ def _refresh(draw, box, ink, _background):
     size = x1 - x0
     cx, cy = (x0 + x1) / 2.0, (y0 + y1) / 2.0
     radius = size * 0.350
-    width = max(1.8, size * 0.150)
+    width = max(1.6, size * 0.115)
     # 弧：40° → 320°，缺口在右侧
     draw.arc((cx - radius, cy - radius, cx + radius, cy + radius),
              start=40, end=320, fill=ink, width=int(round(width)))
@@ -69,8 +69,9 @@ def _refresh(draw, box, ink, _background):
     tx, ty = -math.sin(angle), math.cos(angle)
     nx, ny = math.cos(angle), math.sin(angle)
     # 底边宽度与线宽一致、中心落在弧端点的中心线上 → 箭头不会漂移
-    head_half = width / 2.0
-    head_len = size * 0.265
+    # 箭头底边 = 1.8 倍线宽、长度 = 2.2 倍线宽：比线粗一截，才不会被看成"破损"
+    head_half = width * 0.9
+    head_len = width * 2.2
     draw.polygon([
         (px_ + nx * head_half, py_ + ny * head_half),
         (px_ - nx * head_half, py_ - ny * head_half),

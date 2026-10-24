@@ -207,8 +207,12 @@ class MainWindow:
         tools = ttk.Frame(header)
         tools.grid(row=0, column=3, sticky="e")
 
-        self.btn_show_all = ttk.Button(tools, text="ALL", style="ToolBold.TButton",
-                                       command=self._toggle_show_all)
+        self.btn_show_all = IconButton(
+            tools, palette=self.palette, metrics=self.metrics, icon_paths={},
+            command=self._toggle_show_all, width=self._button_height() + px(24),
+            height=self._button_height(), fonts=self.fonts,
+            text="ALL", font=self.fonts.all_text,
+        )
         self.btn_show_all.grid(row=0, column=0, padx=(0, px(8)))
         self.btn_refresh = self._icon_button(tools, "refresh", command=self.refresh_disks)
         self.btn_refresh.grid(row=0, column=1, padx=(0, px(8)))
@@ -402,7 +406,7 @@ class MainWindow:
     # -------------------------------------------------------------- 刷新 --
     def _toggle_show_all(self) -> None:
         self.show_all = not self.show_all
-        self.btn_show_all.state(["selected"] if self.show_all else ["!selected"])
+        self.btn_show_all.set_selected(self.show_all)
         self.refresh_disks()
 
     def refresh_disks(self) -> None:
@@ -681,7 +685,7 @@ class MainWindow:
             self.status_var.set(text)
         for button in (self.btn_refresh, self.btn_eject, self.btn_help, self.btn_settings):
             self._enable(button, not busy)
-        self.btn_show_all.state(["disabled"] if busy else ["!disabled"])
+        self._enable(self.btn_show_all, not busy)
         if busy:
             self.spinner.place(x=0, y=self.metrics.px(2), relwidth=1.0)
             self.spinner.start(12)
