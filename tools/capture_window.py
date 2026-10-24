@@ -4,12 +4,18 @@
 
     python tools/capture_window.py --title "可移动磁盘" --out shot.png
 
-为什么不用 ``PIL.ImageGrab``：它抓的是**屏幕**，窗口一旦被别的窗口挡住或
-被移到屏幕外，抓到的就是别人的画面。这里走 ``PrintWindow`` +
-``PW_RENDERFULLCONTENT``，让窗口自己把客户区渲染到内存 DC，因此可以在
-屏幕外抓图——测试窗口不必出现在用户桌面上。
+为什么不用 ``PIL.ImageGrab``：它抓的是**屏幕**，窗口一旦被别的窗口挡住，抓到的
+就是别人的画面。这里走 ``PrintWindow`` + ``PW_RENDERFULLCONTENT``，让窗口把
+自己渲染到内存 DC，窗口被挡住也照样能抓。
 
-失败时（全同色 / 全黑）退回 ``BitBlt`` 抓屏幕对应区域。
+**但窗口必须在屏幕上**：实测把 Tk 窗口移到 (20000, 20000) 后，窗口的可视区域
+是空的、GDI 直接把绘制裁掉，PrintWindow 拿到全黑（同一窗口在屏幕上时中心像素
+是主题底色）。所以 ``--topmost`` / ``--foreground`` 只在窗口被挡住时才有意义，
+"在屏幕外抓图"做不到；要用内存里的位图，得让窗口开在自己的进程里（见
+``--report`` 之外的工具用法：CreateDesktop + SetThreadDesktop 在同一个进程内
+建窗口，那边 PrintWindow 是可以的）。
+
+失败时（整个画面只有一种颜色）退回 ``BitBlt`` 抓屏幕对应区域。
 """
 
 from __future__ import annotations
