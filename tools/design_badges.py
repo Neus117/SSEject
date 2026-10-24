@@ -52,15 +52,14 @@ def _exclamation(draw: ImageDraw.ImageDraw, s: int, centre_y: float, colour,
                    fill=colour)
 
 
-def _render_warning_outline(img, draw, s: int, background, foreground) -> None:
-    """线框警告三角（照搬 GUI-of-Edge-TTS 的 `_dialog_warning_icon`）。
-
-    视觉：实心外三角 + 用底色挖空的内三角 = 均匀粗线框；感叹号是圆头线段 + 圆点，
-    整组按三角形**重心**垂直居中。
+def warning_geometry(s: float) -> dict:
+    """警告三角的几何（**唯一权威**：`gui/dialog.py` 的兜底画法要与这里一致）。
 
     **等边三角形**（用户要求：原来底 0.85、高 0.85 是等腰，两腰比底长）：
     固定底边 = ``s - 2*margin``，高 = 底 × √3/2 ≈ 0.736 s；再把整枚三角形上移，
-    让它的包围盒在画布里垂直居中——否则会比同尺寸的圆形徽标看着低一截。
+    让它的**包围盒**在画布里垂直居中——否则会比同尺寸的圆形徽标看着低一截。
+
+    返回外三角三点、挖空用的内三角三点、重心 y 与线宽（都是画布像素）。
     """
     margin = 0.075 * s
     base = s - 2.0 * margin
@@ -79,6 +78,24 @@ def _render_warning_outline(img, draw, s: int, background, foreground) -> None:
     scale = max(0.55, 1.0 - (2.4 * stroke) / max(1.0, s - 2.0 * margin))
     inner = [(cx + (x - cx) * scale, centroid_y + (y - centroid_y) * scale)
              for x, y in (apex, left, right)]
+    return {"apex": apex, "left": left, "right": right, "inner": inner,
+            "centroid_y": centroid_y, "stroke": stroke}
+
+
+def _render_warning_outline(img, draw, s: int, background, foreground) -> None:
+    """线框警告三角（照搬 GUI-of-Edge-TTS 的 `_dialog_warning_icon`）。
+
+    视觉：实心外三角 + 用底色挖空的内三角 = 均匀粗线框；感叹号是圆头线段 + 圆点，
+    整组按三角形**重心**垂直居中。几何全部来自 :func:`warning_geometry`。
+    """
+    geometry = warning_geometry(s)
+    apex = geometry["apex"]
+    left = geometry["left"]
+    right = geometry["right"]
+    inner = geometry["inner"]
+    centroid_y = geometry["centroid_y"]
+    stroke = geometry["stroke"]
+    cx = apex[0]
 
     draw.polygon([apex, left, right], fill=foreground)
     draw.polygon(inner, fill=background)

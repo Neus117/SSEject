@@ -382,3 +382,49 @@ class DiskSnapshotTest(unittest.TestCase):
         self.assertIs(disk_query.find_disk_by_index(7), disk)
         disk_query.clear_cache()
         self.assertIsNone(disk_query.find_disk_by_index(7))
+
+
+class WarningTriangleGeometryTest(unittest.TestCase):
+    """警告三角的几何只有一处权威（tools/design_badges.py），对话框兜底必须与它一致。
+
+    这类"两处画同一个图形"的代码最容易悄悄分叉：改了一边、另一边还是老形状，
+    只有资源缺失走兜底时才暴露。判据是逐点相等 + 等边 + 包围盒居中。
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        import importlib.util
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        spec = importlib.util.spec_from_file_location(
+            "design_badges", os.path.join(root, "tools", "design_badges.py"))
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        cls.badges = module
+        from gui import dialog as dialog_module
+        cls.dialog = dialog_module
+
+    def test_equilateral(self):
+        for size in (43, 54, 75, 108):
+            geometry = self.badges.warning_geometry(size)
+            apex = geometry["apex"]
+            left = geometry["left"]
+            right = geometry["right"]
+            base = right[0] - left[0]
+            height = left[1] - apex[1]
+            self.assertAlmostEqual(height / base, 3 ** 0.5 / 2, places=6)
+            # 包围盒垂直居中
+            self.assertAlmostEqual((apex[1] + left[1]) / 2.0, size / 2.0, places=6)
+
+    def test_dialog_fallback_matches_generator(self):
+        for size in (43, 54, 75, 108):
+            a = self.badges.warning_geometry(size)
+            b = self.dialog._warning_geometry(float(size))
+            for key in ("apex", "left", "right"):
+                self.assertAlmostEqual(a[key][0], b[key][0], places=6)
+                self.assertAlmostEqual(a[key][1], b[key][1], places=6)
+            self.assertAlmostEqual(a["centroid_y"], b["centroid_y"], places=6)
+            self.assertAlmostEqual(a["stroke"], b["stroke"], places=6)
+            self.assertEqual(len(a["inner"]), len(b["inner"]))
+            for pa, pb in zip(a["inner"], b["inner"]):
+                self.assertAlmostEqual(pa[0], pb[0], places=6)
+                self.assertAlmostEqual(pa[1], pb[1], places=6)

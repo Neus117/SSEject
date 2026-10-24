@@ -13,6 +13,7 @@
 
 from __future__ import annotations
 
+import math
 import tkinter as tk
 from tkinter import ttk
 from typing import List, Optional
@@ -67,29 +68,53 @@ _BADGE_SIZES = (43, 54, 65, 75, 86, 97, 108, 129)
 _IMAGE_CACHE = {}
 
 
+def _warning_geometry(s: float) -> dict:
+    """警告三角的几何（与 ``tools/design_badges.py`` 的 ``warning_geometry`` 同一套）。
+
+    等边三角形：底边 = ``s - 2*margin``、高 = 底 × √3/2，整枚三角形上移让**包围盒**
+    在画布里垂直居中（用户要求等边；原来底 0.85、高 0.85 是等腰，两腰比底长）。
+    两处必须一致——`tests/test_core.py` 里有一条用例逐点比对，改一边不改另一边会红。
+    """
+    margin = 0.075 * s
+    base = s - 2.0 * margin
+    height = base * math.sqrt(3.0) / 2.0
+    bottom = s - margin
+    top = bottom - height
+    shift = (top + bottom) / 2.0 - s / 2.0
+    top -= shift
+    bottom -= shift
+    stroke = 0.062 * s
+    cx = s / 2.0
+    apex = (cx, top)
+    left = (margin, bottom)
+    right = (s - margin, bottom)
+    centroid_y = (apex[1] + left[1] + right[1]) / 3.0
+    scale = max(0.55, 1.0 - (2.4 * stroke) / max(1.0, s - 2.0 * margin))
+    inner = [(cx + (x - cx) * scale, centroid_y + (y - centroid_y) * scale)
+             for x, y in (apex, left, right)]
+    return {"apex": apex, "left": left, "right": right, "inner": inner,
+            "centroid_y": centroid_y, "stroke": stroke}
+
+
 def _draw_badge(canvas: tk.Canvas, kind: str, size: int, ink: str = "#000000") -> None:
     """兜底图标（资源缺失时才用）：三角/圆 + 两条矩形。
 
     Tk 的 Canvas 没有抗锯齿，这条路径的斜边会有锯齿——正常路径是
     ``assets/badges/*.png``（Pillow 16 倍渲染 + 平均降采样）。几何与 PNG
-    保持一致：橙黄圆角三角、近黑感叹号、按三角形重心垂直居中。
+    保持一致（见 :func:`_warning_geometry`）：等边线框三角、感叹号按重心垂直居中。
     """
     canvas.delete("all")
     s = size
     if kind in ("warning", "question"):
-        # 线框三角：实心外三角 + 底色内三角挖空（与 Edge TTS GUI 同款），
-        # 比例取自那边已验收的实现：margin 8%、线宽 6%、重心居中。
         background = canvas.cget("background") or "#F3F4F6"
-        margin = 0.075 * s
-        stroke = 0.062 * s
-        cx = s / 2.0
-        apex = (cx, margin)
-        left = (margin, s - margin)
-        right = (s - margin, s - margin)
-        centre = (apex[1] + left[1] + right[1]) / 3.0
-        scale = max(0.55, 1.0 - (2.4 * stroke) / max(1.0, s - 2.0 * margin))
-        inner = [(cx + (x - cx) * scale, centre + (y - centre) * scale)
-                 for x, y in (apex, left, right)]
+        geometry = _warning_geometry(float(s))
+        apex = geometry["apex"]
+        left = geometry["left"]
+        right = geometry["right"]
+        inner = geometry["inner"]
+        centre = geometry["centroid_y"]
+        stroke = geometry["stroke"]
+        cx = apex[0]
         canvas.create_polygon(*[v for p in (apex, left, right) for v in p],
                               fill=ink, outline="")
         canvas.create_polygon(*[v for p in inner for v in p],
