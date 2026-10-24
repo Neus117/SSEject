@@ -41,7 +41,7 @@ def _gear(draw, box, ink, background):
     x0, y0, x1, y1 = box
     size = x1 - x0
     cx, cy = (x0 + x1) / 2.0, (y0 + y1) / 2.0
-    root, tip = size * 0.335, size * 0.480
+    root, tip = size * 0.300, size * 0.430
     points = []
     for index in range(8):
         centre = 2.0 * math.pi * index / 8
@@ -49,7 +49,7 @@ def _gear(draw, box, ink, background):
             angle = centre + offset
             points.append((cx + radius * math.cos(angle), cy + radius * math.sin(angle)))
     draw.polygon(points, fill=ink)
-    hole = size * 0.150
+    hole = size * 0.135
     draw.ellipse((cx - hole, cy - hole, cx + hole, cy + hole), fill=background)
 
 
@@ -68,7 +68,9 @@ def _refresh(draw, box, ink, _background):
     px_, py_ = cx + radius * math.cos(angle), cy + radius * math.sin(angle)
     tx, ty = -math.sin(angle), math.cos(angle)
     nx, ny = math.cos(angle), math.sin(angle)
-    head_len, head_half = size * 0.255, size * 0.145
+    # 底边宽度与线宽一致、中心落在弧端点的中心线上 → 箭头不会漂移
+    head_half = width / 2.0
+    head_len = size * 0.265
     draw.polygon([
         (px_ + nx * head_half, py_ + ny * head_half),
         (px_ - nx * head_half, py_ - ny * head_half),
