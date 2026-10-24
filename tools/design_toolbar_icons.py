@@ -36,6 +36,12 @@ ACCENT_ICONS = {"eject"}
 PLAIN_STATES = ("normal", "hover")
 SUPERSAMPLE = 16
 
+#: 刷新图标（开口圆环 + L 尾巴）的比例，见 :func:`_refresh`
+REFRESH_RADIUS, REFRESH_STROKE = 0.365, 0.100      # 线中心半径 = (外径 0.83 − 线宽) / 2
+REFRESH_ARC = (60, 300)                            # 缺口在右，120°；尾巴从 300° 那头接出去
+REFRESH_ARM = 0.197                                # “横”超出环端点的长度
+REFRESH_TIP_Y = 0.490                              # “竖”的尖端 y（横在高处，尖朝下）
+
 #: 磁盘图标（“显示全部磁盘”按钮）的比例，见 :func:`_disk`
 DISK_LEFT, DISK_TOP, DISK_RIGHT, DISK_BOTTOM = 0.110, 0.160, 0.890, 0.840
 DISK_STROKE, DISK_RADIUS = 0.100, 0.170
@@ -60,29 +66,34 @@ def _gear(draw, box, ink, background):
 
 
 def _refresh(draw, box, ink, _background):
-    """按参考图实测比例重画：环径 0.80、线宽 0.10、尾巴是"横+竖"折角，尖端朝下。
+    """开口圆环（缺口在右）+ 右上“横折竖”的 L 形尾巴，尖端朝下。
 
-    参考图量得（505×463 归一化）：环外径 ≈0.83、线宽 ≈0.10；
-    横线 y≈0.37 从 x≈0.57 到 0.84；竖线 x≈0.84 从 y≈0.15 到 0.44。
+    尾巴的起点**由圆环的端点算出来**（不是另写一个坐标），两根线再画成一条折线
+    （端点 → 角 → 尖），所以：横和竖一定共用同一个角，尾巴也一定接在环上；
+    折线的两个自由端各补一个圆头，等于 round cap。
+
+    比例来自参考图实测（按图标边长归一化，一次只调一档）：
+    环外径 0.83、线宽 0.10（线中心半径 = (0.83−0.10)/2 = 0.365）；缺口 60°→300°
+    （右侧 120°，这样“竖”的上半段落在环外，不会被看成环的右边）；从 300° 端点的
+    环外接“横”（长 0.197），到角后转“竖”，尖端落在 y=0.49（缺口里，朝下）。
     """
     x0, y0, x1, y1 = box
     size = x1 - x0
-    cx, cy = (x0 + x1) / 2.0 - size * 0.02, (y0 + y1) / 2.0
-    radius = size * 0.315
-    width = max(1.4, size * 0.100)
+    cx, cy = (x0 + x1) / 2.0, (y0 + y1) / 2.0
+    radius = size * REFRESH_RADIUS
+    width = max(1, int(round(size * REFRESH_STROKE)))
     draw.arc((cx - radius, cy - radius, cx + radius, cy + radius),
-             start=40, end=320, fill=ink, width=int(round(width)))
+             start=REFRESH_ARC[0], end=REFRESH_ARC[1], fill=ink, width=width)
+    # 环的结束角处就是 L 的横起点：角度按 Tk/PIL 的约定（0° 在 3 点钟，y 向下）
+    end = math.radians(REFRESH_ARC[1])
+    arm = (cx + radius * math.cos(end), cy + radius * math.sin(end))
+    corner = (arm[0] + size * REFRESH_ARM, arm[1])
+    tip = (corner[0], y0 + size * REFRESH_TIP_Y)
+    draw.line((arm, corner, tip), fill=ink, width=width, joint="curve")
     half = width / 2.0
-    bar_y = y0 + size * 0.355
-    tail_x = x0 + size * 0.845
-    start_x = x0 + size * 0.560
-    top_y = y0 + size * 0.150
-    bottom_y = y0 + size * 0.455
-    draw.line((start_x, bar_y, tail_x, bar_y), fill=ink, width=int(round(width)))
-    draw.line((tail_x, top_y, tail_x, bottom_y), fill=ink, width=int(round(width)))
-    for px_, py_ in ((start_x, bar_y), (tail_x, bar_y), (tail_x, top_y),
-                     (tail_x, bottom_y)):
-        draw.ellipse((px_ - half, py_ - half, px_ + half, py_ + half), fill=ink)
+    for point in (arm, tip):  # 两个自由端补圆头
+        draw.ellipse((point[0] - half, point[1] - half,
+                      point[0] + half, point[1] + half), fill=ink)
 
 
 def _disk(draw, box, ink, _background):
