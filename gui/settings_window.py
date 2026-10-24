@@ -1,7 +1,10 @@
 """设置面板：目前承载「主题」选择（跟随系统 / 浅色 / 深色）。
 
-同一条规则：设置项都从这里进，主窗口不再单独放主题按钮。
-窗口是自绘 Toplevel，配色跟随当前主题，深色下标题栏也变深。
+排版原则（与经验库一致）：
+
+* 分区块：标题在上、控件在下，块与块之间留整行空白；
+* 窗口宽度固定、高度随内容，四周留白 24 / 20；
+* 「关闭」单独成行，和设置区之间留 20 逻辑像素，不贴着作用控件。
 """
 
 from __future__ import annotations
@@ -10,11 +13,16 @@ import tkinter as tk
 from tkinter import ttk
 from typing import Callable, Optional
 
-from gui import theme, win32
+from gui import win32
 from gui.tooltip import Tooltip
 
-#: 逻辑宽度（高度按内容）
-WINDOW_WIDTH = 360
+#: 逻辑尺寸与间距（全部是 4 的倍数）
+WINDOW_WIDTH = 420
+PAD_X = 24
+PAD_TOP = 20
+PAD_BOTTOM = 18
+LABEL_GAP = 12      #: 区块标题与控件行之间
+FOOTER_GAP = 20     #: 设置区与「关闭」之间
 
 _THEME_CHOICES = (
     ("system", "monitor", "跟随系统"),
@@ -48,43 +56,43 @@ class SettingsWindow:
         window.resizable(False, False)
         window.configure(background=palette.background)
 
-        body = ttk.Frame(window, padding=(px(16), px(14), px(16), px(12)))
+        body = ttk.Frame(window, padding=(px(PAD_X), px(PAD_TOP), px(PAD_X), px(PAD_BOTTOM)))
         body.pack(fill="both", expand=True)
-        body.columnconfigure(1, weight=1)
+        body.columnconfigure(0, weight=1)
 
-        ttk.Label(body, text="主题", style="Section.TLabel").grid(
-            row=0, column=0, sticky="w", padx=(0, px(16)))
-
+        # ---- 主题区块 ----------------------------------------------------
+        ttk.Label(body, text="主题", style="Section.TLabel").grid(row=0, column=0, sticky="w")
         row = ttk.Frame(body)
-        row.grid(row=0, column=1, sticky="w")
+        row.grid(row=1, column=0, sticky="w", pady=(px(LABEL_GAP), 0))
+
         self.buttons = {}
         for index, (value, icon, tip) in enumerate(_THEME_CHOICES):
             button = ttk.Button(
                 row, image=self._icon(icon), style="Icon.TButton",
                 command=lambda v=value: self._choose(v),
             )
-            button.grid(row=0, column=index, padx=(0 if index == 0 else px(8), 0))
+            button.grid(row=0, column=index, padx=(0 if index == 0 else px(10), 0))
             self._tooltips.append(Tooltip(button, tip, palette=palette,
                                           metrics=metrics, fonts=fonts))
             self.buttons[value] = button
 
-        footer = ttk.Frame(window)
-        footer.pack(fill="x", padx=px(16), pady=(0, px(14)))
+        # ---- 关闭 --------------------------------------------------------
+        footer = ttk.Frame(body)
+        footer.grid(row=2, column=0, sticky="ew", pady=(px(FOOTER_GAP), 0))
         footer.columnconfigure(0, weight=1)
         ttk.Button(footer, text="关闭", style="Accent.TButton",
                    command=self.close).grid(row=0, column=1, sticky="e")
 
         win32.set_window_icon(window, icon_path)
-        if palette.is_dark:
-            win32.set_dark_titlebar(window, True)
+        win32.set_dark_titlebar(window, palette.is_dark)
         self._refresh_selection()
 
         window.update_idletasks()
-        win32.center_on(parent, window)
+        self._place_centered()
         window.deiconify()
         window.grab_set()
         window.focus_force()
-        window.after(60, lambda: self._reapply_chrome())
+        window.after(60, self._reapply_chrome)
         self.parent.wait_window(window)
 
     # ------------------------------------------------------------------ 内部 --
@@ -100,7 +108,7 @@ class SettingsWindow:
         return image
 
     def _icon_size(self) -> int:
-        target = self.metrics.px(16)
+        target = self.metrics.px(18)
         return min((16, 20, 24, 28, 32, 36, 40, 48),
                    key=lambda value: (abs(value - target), value))
 
@@ -118,13 +126,23 @@ class SettingsWindow:
         self.close()
         self.on_theme(value)
 
+    def _place_centered(self) -> None:
+        px = self.metrics.px
+        window = self.window
+        width = px(WINDOW_WIDTH)
+        height = window.winfo_reqheight()
+        window.geometry(f"{width}x{height}")
+        window.update_idletasks()
+        x = self.parent.winfo_rootx() + (self.parent.winfo_width() - width) // 2
+        y = self.parent.winfo_rooty() + (self.parent.winfo_height() - height) // 2
+        window.geometry(f"{width}x{height}+{max(x, 0)}+{max(y, 0)}")
+
     def _reapply_chrome(self) -> None:
         try:
             if not self.window.winfo_exists():
                 return
             win32.set_window_icon(self.window, self.icon_path)
-            if self.palette.is_dark:
-                win32.set_dark_titlebar(self.window, True)
+            win32.set_dark_titlebar(self.window, self.palette.is_dark)
         except tk.TclError:  # pragma: no cover
             pass
 

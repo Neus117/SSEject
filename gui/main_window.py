@@ -151,7 +151,7 @@ class MainWindow:
                      accent: bool = False) -> ttk.Button:
         size = self._icon_size()
         state = "accent" if accent else "normal"
-        key = (icon, size, state)
+        key = (icon, size, state, self.palette.name)
         image = self._icon_images.get(key)
         if image is None:
             path = win32.asset_path(
@@ -344,8 +344,8 @@ class MainWindow:
         if not self._alive:
             return
         win32.set_window_icon(self.root, self.icon_path)
-        if self.palette.is_dark:
-            win32.set_dark_titlebar(self.root, True)
+        # 深→浅也必须显式设回浅色标题栏，否则标题栏会停在上一次的颜色
+        win32.set_dark_titlebar(self.root, self.palette.is_dark)
 
     # -------------------------------------------------------------- 线程 --
     def _post(self, callback: Callable, *args, **kwargs) -> None:
