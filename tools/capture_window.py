@@ -69,11 +69,20 @@ def enable_dpi_awareness() -> None:
             pass
 
 
-def find_windows(title_part: str) -> List[Tuple[int, str]]:
+def find_windows(title_part: str, pid: int = 0) -> List[Tuple[int, str]]:
+    """按标题子串找可见窗口；给了 ``pid`` 就只认这个进程的窗口。
+
+    只按标题匹配会抓到浏览器（页面标题里可能含同样的词），所以验收时用 ``--pid``。
+    """
     found: List[Tuple[int, str]] = []
 
     @ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
     def _cb(hwnd, _lparam):
+        if pid:
+            owner = wintypes.DWORD()
+            user32.GetWindowThreadProcessId(hwnd, ctypes.byref(owner))
+            if owner.value != pid:
+                return True
         length = user32.GetWindowTextLengthW(hwnd)
         if not length:
             return True
@@ -164,6 +173,7 @@ def window_icon(hwnd: int) -> Tuple[int, int]:
 def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--title", required=True, help="窗口标题子串")
+    parser.add_argument("--pid", type=int, default=0, help="只认这个进程的窗口")
     parser.add_argument("--out", required=True, help="输出 PNG 路径")
     parser.add_argument("--report", action="store_true", help="打印窗口与图标句柄")
     parser.add_argument("--foreground", action="store_true",
@@ -173,7 +183,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     args = parser.parse_args(argv)
 
     enable_dpi_awareness()
-    windows = find_windows(args.title)
+    windows = find_windows(args.title, args.pid)
     if not windows:
         print("未找到窗口", file=sys.stderr)
         return 2

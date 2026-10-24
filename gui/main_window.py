@@ -118,39 +118,41 @@ class MainWindow:
         return None if mode == "system" else mode
 
     def _icon_size(self) -> int:
-        target = self.metrics.px(16)
-        return min((16, 20, 24, 28, 32, 36, 40, 48),
+        target = self.metrics.px(18)
+        return min((18, 22, 27, 32, 36, 40, 45, 54),
                    key=lambda value: (abs(value - target), value))
 
     def _configure_icon_styles(self) -> None:
-        """图标按钮的底色必须与预渲染 PNG 里烤进去的一致，所以悬停只换描边。"""
+        """图标按钮：高度对齐文字按钮，悬停换一张同底色的预渲染图。"""
         px = self.metrics.px
         palette = self.palette
         style = ttk.Style(self.root)
+        probe = ttk.Button(self.root, text="ALL", style="Tool.TButton")
+        probe.update_idletasks()
+        target_height = probe.winfo_reqheight()
+        probe.destroy()
+        pad_y = max(1, (target_height - self._icon_size()) // 2)
         style.configure("Icon.TButton", background=palette.surface,
                         bordercolor=palette.surface, borderwidth=1,
-                        relief="flat", padding=(px(6), px(4)))
+                        relief="flat", padding=(px(8), pad_y))
         style.map("Icon.TButton",
                   background=[("active", palette.surface), ("pressed", palette.surface)],
                   bordercolor=[("active", palette.border_strong)],
                   relief=[("active", "flat")])
         style.configure("SelectedIcon.TButton", background=palette.surface,
                         bordercolor=palette.accent, borderwidth=2,
-                        relief="flat", padding=(px(6), px(4)))
+                        relief="flat", padding=(px(8), pad_y))
         style.map("SelectedIcon.TButton",
                   background=[("active", palette.surface), ("pressed", palette.surface)],
                   bordercolor=[("active", palette.accent)])
         style.configure("AccentIcon.TButton", background=palette.accent,
                         bordercolor=palette.accent, borderwidth=1,
-                        relief="flat", padding=(px(18), px(4)))
+                        relief="flat", padding=(px(20), pad_y))
         style.map("AccentIcon.TButton",
                   background=[("active", palette.accent), ("pressed", palette.accent)],
                   bordercolor=[("active", palette.accent_hover)])
 
-    def _icon_button(self, parent, icon: str, *, command,
-                     accent: bool = False) -> ttk.Button:
-        size = self._icon_size()
-        state = "accent" if accent else "normal"
+    def _load_icon(self, icon: str, size: int, state: str):
         key = (icon, size, state, self.palette.name)
         image = self._icon_images.get(key)
         if image is None:
@@ -158,9 +160,22 @@ class MainWindow:
                 "icons", f"{icon}-{size}-{self.palette.name}-{state}.png")
             image = tk.PhotoImage(master=self.root, file=path) if path else None
             self._icon_images[key] = image
+        return image
+
+    def _icon_button(self, parent, icon: str, *, command,
+                     accent: bool = False) -> ttk.Button:
+        size = self._icon_size()
+        state = "accent" if accent else "normal"
+        hover_state = "accent_hover" if accent else "hover"
+        image = self._load_icon(icon, size, state)
+        hover = self._load_icon(icon, size, hover_state)
         style = "AccentIcon.TButton" if accent else "Icon.TButton"
         button = ttk.Button(parent, image=image, style=style, command=command)
         button.image = image
+        button.hover_image = hover
+        if hover is not None:
+            button.bind("<Enter>", lambda _event: button.configure(image=button.hover_image))
+            button.bind("<Leave>", lambda _event: button.configure(image=button.image))
         return button
 
     def _build_header(self, parent: ttk.Frame, px) -> None:
