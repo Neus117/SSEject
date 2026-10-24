@@ -50,9 +50,9 @@ REFRESH_ARC = (42, 325)
 REFRESH_TAIL = ((0.628, 0.370), (0.886, 0.370), (0.886, 0.113))  # 横尾端 → 箭尖 → 竖顶端
 
 #: 磁盘图标（“显示全部磁盘”按钮）的比例，见 :func:`_disk`
-DISK_SCALE = 1.20                                  # 整体放大（笔画一起缩放）
+DISK_SCALE = 1.08                                  # 整体缩放（笔画一起缩放）
 DISK_LEFT, DISK_TOP, DISK_RIGHT, DISK_BOTTOM = 0.110, 0.160, 0.890, 0.840
-DISK_STROKE, DISK_RADIUS = 0.100, 0.170
+DISK_STROKE, DISK_RADIUS = 0.090, 0.170            # 线宽 × 缩放 ≈ 0.097 图标边长
 DISK_SLOT = (0.255, 0.520, 0.380, 0.060)   # 插入槽：x0, x1, y(机身的上 1/3), 线宽
 DISK_LED_X, DISK_LED_R = 0.680, 0.060      # 指示灯：圆心 x（与槽同一行）, 半径
 
