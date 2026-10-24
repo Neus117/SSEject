@@ -26,7 +26,7 @@ class IconButton(tk.Canvas):
                  command: Callable[[], None], width: int, height: int,
                  tooltip: Optional[str] = None, fonts=None, selected: bool = False,
                  accent: bool = False, text: Optional[str] = None,
-                 font=None):
+                 font=None, text_dy: int = 0):
         super().__init__(master, width=width, height=height,
                          background=palette.accent if accent else palette.surface,
                          highlightthickness=0, bd=0,
@@ -38,6 +38,7 @@ class IconButton(tk.Canvas):
         self.accent = accent
         self.text = text
         self.font = font
+        self.text_dy = text_dy           # 文字按钮：按字形墨迹微调纵向位置（物理像素）
         self.enabled = True
         self._hover = False
         self._images = {}
@@ -76,7 +77,8 @@ class IconButton(tk.Canvas):
             self.create_rectangle(1, 1, int(self["width"]) - 1, int(self["height"]) - 1,
                                   outline=self.palette.accent, width=2)
         if self.text:
-            self.create_text(int(self["width"]) // 2, int(self["height"]) // 2,
+            self.create_text(int(self["width"]) // 2,
+                             int(self["height"]) // 2 + self.text_dy,
                              text=self.text, font=self.font, fill=self.palette.text)
             return
         image = self._image("hover" if self._hover else "normal")

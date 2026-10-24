@@ -191,7 +191,7 @@ class MainWindow:
             tools, palette=self.palette, metrics=self.metrics, icon_paths={},
             command=self.show_help, width=self._button_height(),
             height=self._button_height(), fonts=self.fonts,
-            text="?", font=self.fonts.glyph,
+            text="?", font=self.fonts.glyph, text_dy=self.fonts.glyph_dy,
         )
         self.btn_help.grid(row=0, column=3, padx=(0, px(8)))
         self.btn_settings = self._icon_button(tools, "gear", command=self._open_settings)

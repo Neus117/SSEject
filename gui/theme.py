@@ -45,12 +45,20 @@ WINDOW_MIN_HEIGHT = 380
 FONT_BODY_PT = 10
 FONT_SMALL_PT = 9
 
-#: 单字符图标（帮助的“?”）字号：正文 +5.5pt。tkinter 的 size 只能是整数，写 15.5
-#: 会抛 ``TclError: expected integer but got "15.5"``（日志实证，窗口标题会停在
-#: ``tk``）；所以按当前 DPI 换成整数**像素**字号——Tk 内部本来也是这么把 point
-#: 换成像素的（168 DPI 下 16pt → 37px），换出来的字不会随机器缩放走样。
-GLYPH_PT = FONT_BODY_PT + 5.5
+#: 单字符图标（帮助的“?”）字号与字重。要的是“比 normal 粗、比 bold 细”的中间态：
+#: 微软雅黑只有 normal/bold 两档，所以这一枚改用真正带 Semibold 档的家族（单个 ASCII
+#: 字形，不涉及中文回退）。Semibold 的字面比同 pt 的雅黑小一档，所以字号按实测往上
+#: 提到 +7.5pt（168 DPI 下 41px），墨迹高度才与原来 15.5pt 的雅黑（36px）一致。
+#:
+#: tkinter 的 size 只能是整数，写小数会抛 ``TclError: expected integer``（日志实证），
+#: 所以按当前 DPI 换成整数**像素**字号——Tk 内部本来也是这么把 point 换成像素的。
+GLYPH_PT = FONT_BODY_PT + 7.5
+GLYPH_FAMILY = "Segoe UI Semibold"
 
+#: “?”的画法微调：墨迹中心比行框中心**低**约 5% 字号，画的时候往上挪回来
+GLYPH_NUDGE_RATIO = 0.05
+
+#: 字体回退链（正文）。glyph 找不到 Semibold 家族时退回这里 + bold。
 _FONT_STACK = (
     "Microsoft YaHei UI",
     "Microsoft YaHei",
@@ -201,10 +209,12 @@ class Fonts:
                                    size=FONT_BODY_PT, weight="bold")
         self.bold = tkfont.Font(root=root, name="QfeBold", family=self.family,
                                 size=FONT_BODY_PT, weight="bold")
-        # 单字符图标（如帮助的“?”）：字号按图标视觉高度给，和齿轮等大。
-        # 不加粗：加粗的笔画比相邻图标的描边（0.10 图标边长）粗一截，看着比齿轮重。
-        self.glyph = tkfont.Font(root=root, name="QfeGlyph", family=self.family,
-                                 size=-self._glyph_pixels(root), weight="normal")
+        # 单字符图标（如帮助的“?”）：字号按图标视觉高度给，和齿轮等大；
+        # 字重要“中间态”，所以家族优先用带 Semibold 档的那个（见 GLYPH_* 常量）
+        glyph_family, glyph_weight = self._pick_glyph(root)
+        self.glyph_px = self._glyph_pixels(root)
+        self.glyph = tkfont.Font(root=root, name="QfeGlyph", family=glyph_family,
+                                 size=-self.glyph_px, weight=glyph_weight)
         self.mono = tkfont.Font(root=root, name="QfeMono", family="Consolas",
                                 size=FONT_SMALL_PT)
         # 让没有显式指定字体的控件（tk.Text / 原生对话框）跟随同一套
@@ -215,6 +225,15 @@ class Fonts:
             except (tk.TclError, KeyError):  # pragma: no cover
                 pass
 
+    @property
+    def glyph_dy(self) -> int:
+        """“?”在行框里偏低，画的时候按字号往上挪回来（实测墨迹中心低约 5% 字号）。
+
+        Tk 的 Canvas 文本按**行框**居中（ascent+descent），不是按字形墨迹居中；
+        Segoe 的“?”墨迹落在行框下半部，不挪的话按钮里看着偏下。
+        """
+        return -int(round(self.glyph_px * GLYPH_NUDGE_RATIO))
+
     @staticmethod
     def _glyph_pixels(root: tk.Misc) -> int:
         """``GLYPH_PT`` 换算成整数像素字号（Tk 的 point 字号必须是整数）。"""
@@ -223,6 +242,18 @@ class Fonts:
         except (tk.TclError, ValueError):  # pragma: no cover - 极端精简的 Tk 构建
             scaling = 96.0 / 72.0
         return max(1, int(round(GLYPH_PT * scaling)))
+
+    @staticmethod
+    def _pick_glyph(root: tk.Misc) -> tuple:
+        """返回 (家族, 字重)：「比 normal 粗、比 bold 细」的中间态。
+
+        有 ``GLYPH_FAMILY``（Segoe UI Semibold）就用它 + normal；没有就退回正文家族，
+        并按 bold 兜底——宁可粗一点也不让“?”细到看不清。
+        """
+        available = set(tkfont.families(root))
+        if GLYPH_FAMILY in available:
+            return GLYPH_FAMILY, "normal"
+        return Fonts._pick_family(root), "bold"
 
     @staticmethod
     def _pick_family(root: tk.Misc) -> str:
