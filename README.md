@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <strong>稳、快地把可移动磁盘弹出来</strong><br>
+  <strong>S</strong>ure &amp; <strong>S</strong>wift <strong>Eject</strong> —— 稳、快地把可移动磁盘弹出来<br>
   选中磁盘，点一次「弹出」，看到「可以拔下」再拔
 </p>
 
@@ -20,8 +20,20 @@
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/SSEject_v1.0.0-main-light.png" width="720" alt="浅色主题"><br>
-  <img src="docs/screenshots/SSEject_v1.0.0-main-dark.png" width="720" alt="深色主题">
+  <img src="docs/screenshots/SSEject_v1.0.0-main-light.png" width="700" alt="主界面（中文 · 浅色）"><br>
+  <sub>主界面（中文 · 浅色）：弹出成功后的日志</sub>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/SSEject_v1.0.0-dialog-light.png" width="330" alt="确认弹出（中文 · 浅色）">
+  &nbsp;&nbsp;
+  <img src="docs/screenshots/SSEject_v1.0.0-dialog-dark.png" width="330" alt="确认弹出（英文 · 深色）"><br>
+  <sub>确认弹出：中文界面（浅色）与英文界面（深色）</sub>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/SSEject_v1.0.0-main-dark.png" width="700" alt="主界面与设置窗（英文 · 深色）"><br>
+  <sub>主界面 + 设置窗（英文 · 深色）：主题与语言都在这里</sub>
 </p>
 
 ---
@@ -34,6 +46,10 @@
 
 **便携绿色。** 单文件 exe，免安装、无服务、无驱动、不写注册表；不想要了，删掉 exe 和
 `%LOCALAPPDATA%\SSEject` 目录就彻底干净。
+
+> **灵感来源。** 这个工具的想法来自 [SiriusPaul 的 QuickForcedEjectPortableDisk](https://github.com/SiriusPaul/QuickForcedEjectPortableDisk)
+> ——同样为解决"移动硬盘被占用、弹不出来"而写。SSEject **不是它的分支或修改版**：代码重新写过，
+> 界面、弹出流水线、打包方式都不同，详见[致谢](#致谢)。
 
 ## 快速开始
 
@@ -67,8 +83,8 @@
 
 ## 性能
 
-口径：同一台机器、同一块 USB-SATA 机械硬盘、三次取中位数。策略对比来自 `CHANGELOG.md`，
-启动与查询耗时来自 `docs/handoff-2026-10-24.md` 里的实测记录。
+口径：同一台机器、同一块 USB-SATA 机械硬盘、三次取中位数。策略对比也记在
+[`CHANGELOG.md`](CHANGELOG.md) 里。
 
 | 场景 | 结果 |
 |---|---|
@@ -123,7 +139,7 @@
 |---|---|
 | `README.md` / `README.en.md` | 用户——全部功能、开关、代价、已知限制 |
 | [`CHANGELOG.md`](CHANGELOG.md) | 用户与维护者——每个版本的用户可见变化 |
-| [`docs/handoff-2026-10-24.md`](docs/handoff-2026-10-24.md) | 维护者——实测数据、踩过的坑、当前状态与未完成项 |
+| [`LICENSE`](LICENSE) | 所有人——MIT，商用与修改都可以，保留版权声明即可 |
 
 ## 开发者
 
@@ -162,6 +178,17 @@ tests/   单元测试（36 项）
 ```
 
 界面层只负责画和转发；改弹出策略、改判定规则都在 `core/` 里改，改完跑测试。
+
+## 致谢
+
+[**SiriusPaul/QuickForcedEjectPortableDisk**](https://github.com/SiriusPaul/QuickForcedEjectPortableDisk)
+是最初的灵感来源：它同样为了解决"移动硬盘被占用、弹不出来"而写，也正是它让我开始认真琢磨这件事。
+
+SSEject 与它**没有共用代码**，实现也不同：界面与对话框全部自绘（不是系统 MessageBox）；
+弹出走"Shell 弹出动词 + 只重试系统安全移除"，而它用"脱机→联机"释放占用（本工具实测那条路更慢，
+还会把盘留在脱机状态、重插后资源管理器读不到）；日志路径与打包方式也重新设计。
+
+两个项目可以并存：需要"强制剥离占用"时可以试它的做法，需要"稳、快、不改磁盘状态"时用这个。
 
 ## 许可
 

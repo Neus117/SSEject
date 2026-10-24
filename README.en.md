@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <strong>Eject portable disks reliably, and fast</strong><br>
+  <strong>Sure &amp; Swift</strong> — the sure, swift way to eject a portable disk<br>
   Pick the disk, click Eject once, unplug when the log says it is safe
 </p>
 
@@ -20,8 +20,20 @@
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/SSEject_v1.0.0-main-light.png" width="720" alt="Light theme"><br>
-  <img src="docs/screenshots/SSEject_v1.0.0-main-dark.png" width="720" alt="Dark theme">
+  <img src="docs/screenshots/SSEject_v1.0.0-main-light.png" width="700" alt="Main window (Chinese UI, light)"><br>
+  <sub>Main window, Chinese UI, light theme: the log after a successful eject</sub>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/SSEject_v1.0.0-dialog-light.png" width="330" alt="Confirm dialog (Chinese UI, light)">
+  &nbsp;&nbsp;
+  <img src="docs/screenshots/SSEject_v1.0.0-dialog-dark.png" width="330" alt="Confirm dialog (English UI, dark)"><br>
+  <sub>Confirm dialog: Chinese UI in light, English UI in dark</sub>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/SSEject_v1.0.0-main-dark.png" width="700" alt="Main window and Settings (English UI, dark)"><br>
+  <sub>Main window + Settings, English UI, dark theme: theme and language live here</sub>
 </p>
 
 ---
@@ -35,6 +47,12 @@ the system to release that volume until it really works — or tells you which s
 
 **Portable and green.** A single exe: no installer, no service, no driver, no registry writes.
 To remove it, delete the exe and the `%LOCALAPPDATA%\SSEject` folder.
+
+> **Where this comes from.** The idea started with
+> [SiriusPaul's QuickForcedEjectPortableDisk](https://github.com/SiriusPaul/QuickForcedEjectPortableDisk),
+> a tool written for the same problem. SSEject is **not a fork or a modified copy** of it: the code was
+> rewritten, and the UI, the eject pipeline and the packaging are all different — see
+> [Credits](#credits).
 
 ## Quick start
 
@@ -70,8 +88,7 @@ Optional (off by default) — **with the cost spelled out, so you can decide**:
 ## Performance
 
 Baseline: same machine, same USB-SATA hard drive, median of three runs. The strategy comparison
-comes from `CHANGELOG.md`; the startup and query timings come from the measurements recorded in
-`docs/handoff-2026-10-24.md`.
+is also recorded in [`CHANGELOG.md`](CHANGELOG.md).
 
 | Scenario | Result |
 |---|---|
@@ -129,7 +146,7 @@ first, then use this tool on that local disk if you need to.
 |---|---|
 | `README.md` / `README.en.md` | Users — every feature, switch, cost and limitation |
 | [`CHANGELOG.md`](CHANGELOG.md) | Users and maintainers — user-visible changes per version |
-| [`docs/handoff-2026-10-24.md`](docs/handoff-2026-10-24.md) | Maintainers — measurements, traps, current state and open items (Chinese) |
+| [`LICENSE`](LICENSE) | Everyone — MIT; commercial use and modification are fine, keep the notice |
 
 ## For developers
 
@@ -170,6 +187,21 @@ tests/   Unit tests (36)
 
 The UI layer only draws and forwards; change the eject strategy or the classification rules in
 `core/` and run the tests.
+
+## Credits
+
+[**SiriusPaul/QuickForcedEjectPortableDisk**](https://github.com/SiriusPaul/QuickForcedEjectPortableDisk)
+is where the idea started: a tool written for the same "the disk is busy and will not eject" problem,
+and the reason this project exists at all.
+
+SSEject shares **no code** with it and the implementation differs: the UI and dialogs are drawn
+in-house (no system MessageBox); ejecting uses the Shell "eject" verb plus a pure retry of the
+system's safe removal, while it releases the lock with an offline→online cycle (measured slower here,
+and it leaves the disk offline so Explorer cannot read it after re-plugging); logging paths and
+packaging are redesigned as well.
+
+The two can coexist: reach for its approach when you want to force the lock away, and for this one
+when you want a sure, swift eject that never changes disk state.
 
 ## Licence
 
