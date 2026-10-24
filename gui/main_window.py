@@ -216,8 +216,12 @@ class MainWindow:
         self.btn_eject = self._icon_button(tools, "eject", accent=True,
                                            command=lambda: self._start_action("eject"))
         self.btn_eject.grid(row=0, column=2, padx=(0, px(8)))
-        self.btn_help = ttk.Button(tools, text="?", style="ToolGlyph.TButton",
-                                   command=self.show_help)
+        self.btn_help = IconButton(
+            tools, palette=self.palette, metrics=self.metrics, icon_paths={},
+            command=self.show_help, width=self._button_height(),
+            height=self._button_height(), fonts=self.fonts,
+            text="?", font=self.fonts.glyph,
+        )
         self.btn_help.grid(row=0, column=3, padx=(0, px(8)))
         self.btn_settings = self._icon_button(tools, "gear", command=self._open_settings)
         self.btn_settings.grid(row=0, column=4)

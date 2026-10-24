@@ -54,26 +54,26 @@ def _gear(draw, box, ink, background):
 
 
 def _refresh(draw, box, ink, _background):
-    """参考图：整圈粗圆环、缺口在右；箭头是右上角的折角（横线在上、竖线在右）。"""
+    """开放圆环（从右下顺时针到右上）+ 朝东南的箭头，形状照参考图。"""
     x0, y0, x1, y1 = box
     size = x1 - x0
     cx, cy = (x0 + x1) / 2.0, (y0 + y1) / 2.0
-    radius = size * 0.345
+    radius = size * 0.350
     width = max(1.8, size * 0.150)
+    # 弧：40° → 320°，缺口在右侧
     draw.arc((cx - radius, cy - radius, cx + radius, cy + radius),
              start=40, end=320, fill=ink, width=int(round(width)))
-    half = width / 2.0
-    # 横线从弧的端点开始，避免穿过圆环（之前看起来像字母 G）
-    end_angle = math.radians(320)
-    start_x = cx + radius * math.cos(end_angle)
-    top_y = cy + radius * math.sin(end_angle)
-    right_x = cx + radius + size * 0.075
-    draw.line((start_x, top_y, right_x, top_y), fill=ink, width=int(round(width)))
-    draw.line((right_x, top_y, right_x, top_y + size * 0.185), fill=ink,
-              width=int(round(width)))
-    for px_, py_ in ((start_x, top_y), (right_x, top_y),
-                     (right_x, top_y + size * 0.185)):
-        draw.ellipse((px_ - half, py_ - half, px_ + half, py_ + half), fill=ink)
+    # 箭头：接在 320° 端点，尖端沿切线（东南方向）伸出
+    angle = math.radians(320)
+    px_, py_ = cx + radius * math.cos(angle), cy + radius * math.sin(angle)
+    tx, ty = -math.sin(angle), math.cos(angle)
+    nx, ny = math.cos(angle), math.sin(angle)
+    head_len, head_half = size * 0.255, size * 0.145
+    draw.polygon([
+        (px_ + nx * head_half, py_ + ny * head_half),
+        (px_ - nx * head_half, py_ - ny * head_half),
+        (px_ + tx * head_len, py_ + ty * head_len),
+    ], fill=ink)
 
 
 def _help(draw, box, ink, _background):

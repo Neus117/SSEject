@@ -25,7 +25,8 @@ class IconButton(tk.Canvas):
     def __init__(self, master, *, palette, metrics, icon_paths: dict,
                  command: Callable[[], None], width: int, height: int,
                  tooltip: Optional[str] = None, fonts=None, selected: bool = False,
-                 accent: bool = False):
+                 accent: bool = False, text: Optional[str] = None,
+                 font=None):
         super().__init__(master, width=width, height=height,
                          background=palette.accent if accent else palette.surface,
                          highlightthickness=0, bd=0,
@@ -35,6 +36,8 @@ class IconButton(tk.Canvas):
         self.paths = icon_paths          # {"normal": path, "hover": path}
         self.selected = selected
         self.accent = accent
+        self.text = text
+        self.font = font
         self.enabled = True
         self._hover = False
         self._images = {}
@@ -72,6 +75,10 @@ class IconButton(tk.Canvas):
         if self.selected:
             self.create_rectangle(1, 1, int(self["width"]) - 1, int(self["height"]) - 1,
                                   outline=self.palette.accent, width=2)
+        if self.text:
+            self.create_text(int(self["width"]) // 2, int(self["height"]) // 2,
+                             text=self.text, font=self.font, fill=self.palette.text)
+            return
         image = self._image("hover" if self._hover else "normal")
         if image is not None:
             self.create_image(int(self["width"]) // 2, int(self["height"]) // 2,
