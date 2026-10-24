@@ -11,6 +11,8 @@ import os
 from pathlib import Path
 from typing import Any, Dict
 
+from . import i18n
+
 APP_DIR_NAME = "SSEject"
 
 #: 默认值：主题跟随系统；语言留空表示"按系统语言挑"
@@ -37,6 +39,8 @@ def load() -> Dict[str, Any]:
                 values[key] = stored[key]
     if values["theme"] not in _VALID_THEMES:
         values["theme"] = DEFAULTS["theme"]
+    if values["language"] not in i18n.CHOICES:
+        values["language"] = DEFAULTS["language"]
     return values
 
 
@@ -57,5 +61,7 @@ def update(**changes: Any) -> Dict[str, Any]:
     values.update(changes)
     if values["theme"] not in _VALID_THEMES:
         values["theme"] = DEFAULTS["theme"]
+    if values["language"] not in i18n.CHOICES:
+        values["language"] = DEFAULTS["language"]
     save(values)
     return values

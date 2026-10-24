@@ -19,6 +19,8 @@ import os
 from ctypes import wintypes
 from typing import Optional, Tuple
 
+from .i18n import L
+
 IS_WINDOWS = os.name == "nt"
 
 CR_SUCCESS = 0
@@ -31,22 +33,34 @@ CM_DEVCAP_EJECTSUPPORTED = 0x00000002
 CM_DEVCAP_REMOVABLE = 0x00000004
 EVICTABLE_CAPABILITIES = CM_DEVCAP_EJECTSUPPORTED | CM_DEVCAP_REMOVABLE
 
-#: PNP_VETO_TYPE → 用户看得懂的原因
+#: PNP_VETO_TYPE → （中文, English）。存成二元组而不是成品字符串：
+#: 成品字符串会在 import 时把语言“冻住”，用户之后在设置里换语言就不生效了。
 VETO_TEXT = {
-    0: "未知原因",
-    1: "旧式设备无法安全移除",
-    2: "设备正在关闭，稍后重试",
-    3: "有应用程序正在使用该设备",
-    4: "有系统服务正在使用该设备",
-    5: "仍有文件或句柄处于打开状态",
-    6: "设备本身拒绝移除",
-    7: "驱动拒绝移除",
-    8: "非法的移除请求",
-    9: "电源不足",
-    10: "设备不允许禁用",
-    11: "旧式驱动拒绝移除",
-    12: "权限不足（需要管理员）",
+    0: ("未知原因", "Unknown reason"),
+    1: ("旧式设备无法安全移除", "Legacy device cannot be removed safely"),
+    2: ("设备正在关闭，稍后重试", "Device is shutting down, try again later"),
+    3: ("有应用程序正在使用该设备", "An application is using the device"),
+    4: ("有系统服务正在使用该设备", "A system service is using the device"),
+    5: ("仍有文件或句柄处于打开状态", "Files or handles are still open"),
+    6: ("设备本身拒绝移除", "The device itself refused removal"),
+    7: ("驱动拒绝移除", "The driver refused removal"),
+    8: ("非法的移除请求", "Invalid removal request"),
+    9: ("电源不足", "Insufficient power"),
+    10: ("设备不允许禁用", "The device cannot be disabled"),
+    11: ("旧式驱动拒绝移除", "A legacy driver refused removal"),
+    12: ("权限不足（需要管理员）", "Access denied (administrator required)"),
 }
+
+#: `CM_Request_Device_EjectW` 的 veto 码：8 = 非法请求（这一层节点不可弹出，继续往上找）
+_VETO_INVALID_REQUEST = 8
+
+
+def veto_text(code: int) -> str:
+    """把 veto 码翻成当前语言的说明。"""
+    pair = VETO_TEXT.get(int(code))
+    if pair is None:
+        return L(f"未知原因（{code}）", f"Unknown reason ({code})")
+    return L(*pair)
 
 
 def _cfgmgr():
@@ -101,18 +115,21 @@ def _capabilities(cfgmgr, node: int) -> int:
     return int(value.value) if code == CR_SUCCESS else 0
 
 
-def _eject_node(cfgmgr, node: int) -> Tuple[bool, str]:
+def _eject_node(cfgmgr, node: int) -> Tuple[bool, str, int]:
+    """请求弹出一个节点；返回 (是否成功, 原因文案, veto 码)。"""
     veto = ctypes.c_int(0)
     name = ctypes.create_unicode_buffer(260)
     code = int(cfgmgr.CM_Request_Device_EjectW(
         node, ctypes.byref(veto), name, 260, 0))
     if code == CR_SUCCESS:
-        return True, ""
-    reason = VETO_TEXT.get(int(veto.value), f"未知原因（{int(veto.value)}）")
+        return True, "", 0
+    veto_code = int(veto.value)
+    reason = veto_text(veto_code)
     who = (name.value or "").strip()
     if code == CR_ACCESS_DENIED:
-        reason = "权限不足（需要管理员）"
-    return False, reason + (f"：{who}" if who else "")
+        reason = L("权限不足（需要管理员）", "Access denied (administrator required)")
+    separator = L("：", ": ")
+    return False, reason + (separator + who if who else ""), veto_code
 
 
 def candidate_nodes(cfgmgr, node: int) -> list:
@@ -131,33 +148,35 @@ def candidate_nodes(cfgmgr, node: int) -> list:
 def request_eject(instance_id: str) -> Tuple[bool, str]:
     """请求 PnP 管理器安全移除 ``instance_id`` 对应的设备（自动上溯到可弹节点）。"""
     if not IS_WINDOWS or not instance_id:
-        return False, "非 Windows 或设备 ID 为空"
+        return False, L("非 Windows 或设备 ID 为空", "Not Windows, or the device ID is empty")
     try:
         cfgmgr = _cfgmgr()
         _bind(cfgmgr)
     except Exception as exc:  # pragma: no cover - 极老系统
-        return False, f"系统不支持该接口：{exc}"
+        return False, L(f"系统不支持该接口：{exc}", f"This interface is not supported: {exc}")
 
     devinst = wintypes.DWORD(0)
     code = int(cfgmgr.CM_Locate_DevNodeW(ctypes.byref(devinst), instance_id, 0))
     if code != CR_SUCCESS:
         if code == CR_NO_SUCH_DEVNODE:
-            return True, "设备节点已不存在（视为已移除）"
-        return False, f"找不到设备节点（CONFIGRET {code}）"
+            return True, L("设备节点已不存在（视为已移除）", "Device node is gone (treated as removed)")
+        return False, L(f"找不到设备节点（CONFIGRET {code}）", f"Device node not found (CONFIGRET {code})")
 
     node = int(devinst.value)
     last_reason = ""
     for _ in range(6):
         if _capabilities(cfgmgr, node) & EVICTABLE_CAPABILITIES:
-            ok, reason = _eject_node(cfgmgr, node)
+            ok, reason, veto_code = _eject_node(cfgmgr, node)
             if ok:
                 return True, ""
             last_reason = reason
-            # 磁盘节点自己不可弹出：继续往上找可移动设备节点
-            if "非法的移除请求" not in reason:
+            # 磁盘节点自己不可弹出：继续往上找可移动设备节点。
+            # 判据用 veto 码，不能拿本地化后的文案去匹配（换语言就失效）
+            if veto_code != _VETO_INVALID_REQUEST:
                 return False, reason
         parent = _parent_of(cfgmgr, node)
         if parent is None or parent == node:
             break
         node = parent
-    return False, last_reason or "没有找到可安全移除的设备节点"
+    return False, last_reason or L("没有找到可安全移除的设备节点",
+                                   "No safely removable device node found")

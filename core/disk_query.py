@@ -21,7 +21,8 @@ import os
 from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
-from . import applog, winproc
+from . import applog, i18n, winproc
+from .i18n import L
 
 DEBUG = bool(os.environ.get("QFE_DEBUG"))
 
@@ -56,17 +57,18 @@ class DiskInfo:
 
     @property
     def letters_text(self) -> str:
-        return "、".join(f"{letter}:" for letter in self.letters) or "—"
+        separator = "、" if i18n.language() == "zh" else ", "
+        return separator.join(f"{letter}:" for letter in self.letters) or "—"
 
     @property
     def type_text(self) -> str:
-        return "外接" if self.is_external else "内置"
+        return L("外接", "External") if self.is_external else L("内置", "Internal")
 
     @property
     def state_text(self) -> str:
         if self.is_offline is None:
             return "—"
-        return "脱机" if self.is_offline else "联机"
+        return L("脱机", "Offline") if self.is_offline else L("联机", "Online")
 
 
 def format_size(size_bytes: int) -> str:
@@ -138,7 +140,8 @@ def _run_payload(script: str, timeout: float) -> Any:
     try:
         return json.loads(raw)
     except json.JSONDecodeError as exc:
-        raise DiskQueryError(f"PowerShell 返回的内容不是 JSON：{raw[:200]}") from exc
+        raise DiskQueryError(L(f"PowerShell 返回的内容不是 JSON：{raw[:200]}",
+                               f"PowerShell output is not JSON: {raw[:200]}")) from exc
 
 
 def _fallback_letters(timeout: float) -> Dict[int, List[str]]:
@@ -180,7 +183,7 @@ def _debug(message: str) -> None:
 def _collect(timeout: float) -> List[DiskInfo]:
     payload = _run_payload(_DISK_SCRIPT, timeout)
     if not isinstance(payload, dict):
-        raise DiskQueryError("PowerShell 没有返回磁盘数据")
+        raise DiskQueryError(L("PowerShell 没有返回磁盘数据", "PowerShell returned no disk data"))
 
     disks = _as_list(payload.get("Disks"))
     partitions = _as_list(payload.get("Partitions"))

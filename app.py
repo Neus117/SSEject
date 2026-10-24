@@ -13,7 +13,8 @@ import traceback
 import tkinter as tk
 from tkinter import messagebox
 
-from core import admin, applog, disk_query, version
+from core import admin, applog, disk_query, i18n, settings, version
+from core.i18n import L
 from gui import win32
 from gui.dialog import active_dialogs
 from gui.help_window import HelpWindow
@@ -62,8 +63,11 @@ def run_diagnostics(output_path: str) -> int:
     打包成 windowed exe 后没有控制台，出问题只能靠"程序自己说出来"。
     这个模式不弹 UAC，也不会显示窗口。
     """
+    i18n.set_language(settings.load().get("language", ""))
     result = {
         "version": version.APP_VERSION,
+        "language": i18n.language(),
+        "title": version.app_title(),
         "admin": admin.has_admin_rights(),
         "icon_path": win32.python_icon_path(),
         "icon_handles": None,
@@ -156,13 +160,15 @@ def main(argv=None) -> int:
         # 新进程已经带着管理员权限启动，本进程退出即可
         return 0
     if state == "denied":
-        applog.write("warn", "未获得管理员权限，以只读模式启动")
+        applog.write("warn", L("未获得管理员权限，以只读模式启动",
+                            "Started read-only: no administrator rights"))
 
     root = tk.Tk()
     root.report_callback_exception = hook
     app = MainWindow(root, admin_state=state)
     if state != "admin":
-        app._log("未获得管理员权限：可以查看磁盘，但不能执行磁盘操作。", "warn")
+        app._log(L("未获得管理员权限：可以查看磁盘，但不能执行磁盘操作。",
+                   "No administrator rights: disks can be viewed but not operated on."), "warn")
     root.mainloop()
     return 0
 

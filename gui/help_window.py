@@ -10,14 +10,15 @@ import tkinter as tk
 import webbrowser
 from tkinter import ttk
 
-from core import applog, version
+from core import applog, i18n, version
+from core.i18n import L
 from gui import win32
 
 #: 窗口尺寸（逻辑像素）
 WINDOW_WIDTH = 560
 WINDOW_HEIGHT = 470
 
-_HELP_TEXT = """用途
+_HELP_TEXT_ZH = """用途
 安全弹出移动磁盘。系统提示“设备正在使用中”时不用改任何设置：选中磁盘点“弹出”，
 程序会自动重试，等系统释放后完成移除。
 
@@ -33,6 +34,37 @@ _HELP_TEXT = """用途
 · 可按 F5 刷新磁盘列表。
 """
 
+_HELP_TEXT_EN = """What it does
+Ejects removable disks safely. When Windows says the device is in use, nothing needs to be
+configured: select the disk, click “eject”, and the tool keeps retrying until the system
+releases it.
+
+Steps
+1. Select a disk in the list (removable disks are listed by default).
+2. Click “eject”. If another program is using the device, the tool retries once every
+   0.4 seconds, for up to about 10 seconds.
+3. On success the drive letter disappears and the device can be unplugged. On failure the
+   device is left untouched; wait a few seconds and click once more.
+
+Notes
+· Disk operations need administrator rights. Without them the tool runs read-only and can
+  still show disks.
+· Ejecting never changes the disk's online/offline state; after re-plugging, Explorer reads
+  it directly.
+· “Show all disks” lists internal disks too, but internal disks cannot be operated on.
+· Press F5 to rescan the disk list.
+"""
+
+#: 每行开头的“小节标题”（用于加粗样式）；中英文各一套
+_SECTION_PREFIXES_ZH = ("用途", "操作步骤", "说明")
+_SECTION_PREFIXES_EN = ("What it does", "Steps", "Notes")
+
+
+def _help_text() -> tuple:
+    if i18n.language() == "en":
+        return _HELP_TEXT_EN, _SECTION_PREFIXES_EN
+    return _HELP_TEXT_ZH, _SECTION_PREFIXES_ZH
+
 
 class HelpWindow:
     def __init__(self, parent: tk.Misc, *, palette, metrics, fonts, icon_path):
@@ -45,7 +77,7 @@ class HelpWindow:
         window = tk.Toplevel(parent)
         self.window = window
         window.withdraw()
-        window.title("使用说明")
+        window.title(L("使用说明", "User guide"))
         window.transient(parent)
         window.resizable(False, False)
         window.configure(background=palette.background)
@@ -76,20 +108,21 @@ class HelpWindow:
         text.tag_configure("link", foreground=palette.accent, underline=True)
         text.tag_configure("path", foreground=palette.text_secondary, font=fonts.small)
 
-        for line in _HELP_TEXT.splitlines():
+        help_text, sections = _help_text()
+        for line in help_text.splitlines():
             if not line.strip():
                 continue
-            block = line if line.startswith(("用途", "操作步骤", "说明")) else None
-            if block:
+            if line.startswith(sections):
                 text.insert("end", line + "\n", ("h",))
             else:
                 text.insert("end", line + "\n")
 
-        text.insert("end", "日志\n", ("h",))
+        text.insert("end", L("日志\n", "Log\n"), ("h",))
         text.insert("end", str(applog.log_path()) + "\n", ("path",))
-        text.insert("end", "关于\n", ("h",))
+        text.insert("end", L("关于\n", "About\n"), ("h",))
         text.insert("end",
-                    f"{version.APP_NAME} {version.version_string()} · {version.LICENSE_NAME} 许可证\n",
+                    f"{version.APP_NAME} {version.version_string()} · "
+                    f"{version.LICENSE_NAME}\n",
                     ("path",))
         text.insert("end", version.PROJECT_URL + "\n", ("link",))
         text.tag_bind("link", "<Button-1>",
@@ -104,7 +137,7 @@ class HelpWindow:
         footer = ttk.Frame(body)
         footer.grid(row=1, column=0, sticky="e", pady=(px(12), 0))
         # 与对话框按钮同宽一档（单字/双字按钮按自然宽度会比系统对话框窄）
-        ttk.Button(footer, text="关闭", style="Accent.TButton",
+        ttk.Button(footer, text=L("关闭", "Close"), style="Accent.TButton",
                    padding=(px(28), px(6)),
                    command=self._close).pack(side="right")
 

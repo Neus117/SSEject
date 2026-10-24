@@ -22,6 +22,8 @@ import subprocess
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Sequence
 
+from .i18n import L
+
 SYSTEM_ROOT = os.environ.get("SystemRoot", r"C:\Windows")
 SYSTEM32 = os.path.join(SYSTEM_ROOT, "System32")
 POWERSHELL = os.path.join(
@@ -139,7 +141,8 @@ def run(
         except Exception:  # pragma: no cover
             pass
         raise CommandTimeout(
-            f"命令执行超时（{timeout:.0f} 秒）：{os.path.basename(cmd[0])}",
+            L(f"命令执行超时（{timeout:.0f} 秒）：{os.path.basename(cmd[0])}",
+              f"Command timed out after {timeout:.0f}s: {os.path.basename(cmd[0])}"),
             returncode=-1,
         )
     return CommandResult(
@@ -165,7 +168,8 @@ def run_powershell(
     if result.returncode != 0:
         detail = (result.stderr or result.stdout or "").strip()
         raise CommandError(
-            detail or f"PowerShell 退出码 {result.returncode}",
+            detail or L(f"PowerShell 退出码 {result.returncode}",
+                        f"PowerShell exit code {result.returncode}"),
             output=result.output,
             returncode=result.returncode,
         )
@@ -188,4 +192,5 @@ def run_diskpart(lines: List[str], *, timeout: float = 30.0) -> CommandResult:
         )
     except OSError as exc:
         # 非管理员时 Popen 会直接抛 WinError 740（要求提升）
-        raise CommandError(f"无法启动 diskpart：{exc.strerror or exc}") from exc
+        raise CommandError(L(f"无法启动 diskpart：{exc.strerror or exc}",
+                                     f"Cannot start diskpart: {exc.strerror or exc}")) from exc

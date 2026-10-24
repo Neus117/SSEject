@@ -15,6 +15,7 @@ from __future__ import annotations
 from typing import List, Optional
 
 from . import applog, disk_attr, winproc
+from .i18n import L
 
 #: 命中任意一条即判失败（中文 / 英文版 Windows）
 _FAILURE_MARKERS = (
@@ -65,10 +66,17 @@ def _check_index(index: int) -> int:
     try:
         number = int(index)
     except (TypeError, ValueError) as exc:
-        raise DiskpartError(f"磁盘号无效：{index!r}") from exc
+        raise DiskpartError(L(f"磁盘号无效：{index!r}", f"Invalid disk number: {index!r}")) from exc
     if number < 0:
-        raise DiskpartError(f"磁盘号无效：{number}")
+        raise DiskpartError(L(f"磁盘号无效：{number}", f"Invalid disk number: {number}"))
     return number
+
+
+def _action_name(number: int, want_offline: bool) -> str:
+    """动作名（进日志与错误文案）：随界面语言变。"""
+    if want_offline:
+        return L(f"磁盘 {number} 脱机", f"Set disk {number} offline")
+    return L(f"磁盘 {number} 联机", f"Set disk {number} online")
 
 
 def disk_is_offline(index: int) -> Optional[bool]:
@@ -97,12 +105,13 @@ def _judge(action: str, output: str, state: Optional[bool], want_offline: bool) 
     if state is not None:
         if state == want_offline:
             return output
-        actual = "脱机" if state else "联机"
-        wanted = "脱机" if want_offline else "联机"
-        raise DiskpartError(f"{action}失败：磁盘仍处于{actual}状态（目标：{wanted}）", output)
+        actual = L("脱机", "offline") if state else L("联机", "online")
+        wanted = L("脱机", "offline") if want_offline else L("联机", "online")
+        raise DiskpartError(L(f"{action}失败：磁盘仍处于{actual}状态（目标：{wanted}）",
+                              f"{action} failed: disk is still {actual} (wanted: {wanted})"), output)
     failure = _first_failure_line(output)
     if failure:
-        raise DiskpartError(f"{action}失败：{failure}", output)
+        raise DiskpartError(L(f"{action}失败：{failure}", f"{action} failed: {failure}"), output)
     return output
 
 
@@ -146,13 +155,15 @@ def offline_disk(index: int) -> str:
     number = _check_index(index)
     state = disk_attr.set_offline(number, True)
     if state is True:
-        return f"已通过系统接口把磁盘 {number} 置为脱机（未调用 diskpart）。"
+        return L(f"已通过系统接口把磁盘 {number} 置为脱机（未调用 diskpart）。",
+                 f"Disk {number} set offline through the system interface (diskpart not called).")
     applog.write("info", f"IOCTL 脱机失败（Win32 错误 {disk_attr.last_error()}），改用 Storage 模块")
     if _cim_set_offline(number, True) is True:
-        return f"已通过 Storage 模块把磁盘 {number} 置为脱机。"
+        return L(f"已通过 Storage 模块把磁盘 {number} 置为脱机。",
+             f"Disk {number} set offline through the Storage module.")
     applog.write("info", "Storage 模块脱机失败，改用 diskpart")
     output = _run_raw([f"select disk {number}", "offline disk"])
-    return _judge(f"磁盘 {number} 脱机", output, disk_is_offline(number), True)
+    return _judge(_action_name(number, True), output, disk_is_offline(number), True)
 
 
 def online_disk(index: int) -> str:
@@ -160,12 +171,14 @@ def online_disk(index: int) -> str:
     number = _check_index(index)
     state = disk_attr.set_offline(number, False)
     if state is True:
-        return f"已通过系统接口把磁盘 {number} 置为联机（未调用 diskpart）。"
+        return L(f"已通过系统接口把磁盘 {number} 置为联机（未调用 diskpart）。",
+             f"Disk {number} set online through the system interface (diskpart not called).")
     applog.write("info", f"IOCTL 联机失败（Win32 错误 {disk_attr.last_error()}），改用 Storage 模块")
     if _cim_set_offline(number, False) is False:
-        return f"已通过 Storage 模块把磁盘 {number} 置为联机。"
+        return L(f"已通过 Storage 模块把磁盘 {number} 置为联机。",
+             f"Disk {number} set online through the Storage module.")
     applog.write("info", "Storage 模块联机失败，改用 diskpart")
     output = _run_raw([f"select disk {number}", "online disk"])
-    return _judge(f"磁盘 {number} 联机", output, disk_is_offline(number), False)
+    return _judge(_action_name(number, False), output, disk_is_offline(number), False)
 
 

@@ -25,6 +25,7 @@ from dataclasses import dataclass, field
 from typing import Callable, Dict, List, Optional
 
 from . import disk_attr, disk_query, pnp, winproc
+from .i18n import L
 
 #: 等待盘符消失的上限（秒）
 LETTER_WAIT = 1.5
@@ -137,15 +138,18 @@ def _safe_remove(pnp_id: str, details: List[str]) -> bool:
     有程序占用时返回 veto 原因（含占用者名字），**不会硬删**，盘符也不会被弄丢。
     """
     if not pnp_id:
-        details.append("没有取得 PNPDeviceID，跳过安全移除")
+        details.append(L("没有取得 PNPDeviceID，跳过安全移除",
+                             "No PNPDeviceID, skipping safe removal"))
         return False
     ok, message = pnp.request_eject(pnp_id)
     if ok:
-        details.append(f"系统已安全移除设备 => {pnp_id}")
+        details.append(L(f"系统已安全移除设备 => {pnp_id}",
+                             f"Device safely removed => {pnp_id}"))
         if message:
             details.append(message)
         return True
-    details.append(f"系统拒绝安全移除：{message}")
+    details.append(L(f"系统拒绝安全移除：{message}",
+                             f"System refused safe removal: {message}"))
     return False
 
 
@@ -166,10 +170,12 @@ def eject_disk(disk: disk_query.DiskInfo,
     for letter in letters:
         lockable = disk_attr.volume_lockable(letter)
         if lockable is None:
-            details.append(f"卷状态 {letter}: 无法查询")
+            details.append(L(f"卷状态 {letter}: 无法查询", f"Volume {letter}: cannot query state"))
         else:
-            details.append(f"卷状态 {letter}: "
-                           + ("可锁定（无打开句柄）" if lockable else "被占用（有打开句柄）"))
+            details.append(L(f"卷状态 {letter}: "
+                             + ("可锁定（无打开句柄）" if lockable else "被占用（有打开句柄）"),
+                             f"Volume {letter}: "
+                             + ("lockable (no open handles)" if lockable else "in use (open handles)")))
 
     def stage(text: str) -> None:
         if on_stage is not None:
@@ -179,11 +185,13 @@ def eject_disk(disk: disk_query.DiskInfo,
                 pass
 
     if not letters:
-        details.append("该磁盘没有盘符，跳过 Shell 弹出")
+        details.append(L("该磁盘没有盘符，跳过 Shell 弹出",
+                             "Disk has no drive letter, skipping Shell eject"))
     elif disk.pnp_id and disk.pnp_id in _SHELL_NOVERB:
-        details.append("Shell 弹出跳过：该设备上次没有“弹出”动词，本次直接跳过")
+        details.append(L("Shell 弹出跳过：该设备上次没有“弹出”动词，本次直接跳过",
+                             "Shell eject skipped: this device had no eject verb last time"))
     else:
-        stage("正在尝试：系统弹出…")
+        stage(L("正在尝试：系统弹出…", "Trying: system eject…"))
         started = time.perf_counter()
         statuses = shell_status(letters)
         invoked: List[str] = []
@@ -191,17 +199,21 @@ def eject_disk(disk: disk_query.DiskInfo,
             state = statuses.get(letter, "UNKNOWN")
             if state == "INVOKED":
                 invoked.append(letter)
-                details.append(f"Shell 弹出已调用：{letter}:")
+                details.append(L(f"Shell 弹出已调用：{letter}:", f"Shell eject invoked: {letter}:"))
             elif state == "NOVERB":
-                details.append(f"Shell 弹出跳过：{letter}: 没有“弹出”动词")
+                details.append(L(f"Shell 弹出跳过：{letter}: 没有“弹出”动词",
+                                 f"Shell eject skipped: {letter}: no eject verb"))
             elif state == "NOITEM":
-                details.append(f"Shell 弹出跳过：{letter}: 卷不存在")
+                details.append(L(f"Shell 弹出跳过：{letter}: 卷不存在",
+                                 f"Shell eject skipped: {letter}: volume missing"))
             else:
-                details.append(f"Shell 弹出未执行：{letter}:（查询失败，继续下一策略）")
+                details.append(L(f"Shell 弹出未执行：{letter}:（查询失败，继续下一策略）",
+                                 f"Shell eject not run: {letter}: (query failed, trying next)  "))
         gone = wait_gone(invoked)
         for letter in gone:
-            details.append(f"Shell 弹出成功：{letter}:")
-        details.append(f"系统弹出阶段用时 {time.perf_counter() - started:.2f} s")
+            details.append(L(f"Shell 弹出成功：{letter}:", f"Shell eject succeeded: {letter}:"))
+        details.append(L(f"系统弹出阶段用时 {time.perf_counter() - started:.2f} s",
+                         f"Shell eject stage took {time.perf_counter() - started:.2f} s"))
         if gone:
             return EjectResult(True, "shell_com", details)
         if disk.pnp_id and statuses and not invoked \
@@ -209,27 +221,37 @@ def eject_disk(disk: disk_query.DiskInfo,
             # 记住"这个设备没有弹出动词"，下次直接省掉 0.7 s 的查询
             _SHELL_NOVERB.add(disk.pnp_id)
 
-    stage("正在尝试：移除设备…")
+    stage(L("正在尝试：移除设备…", "Trying: remove device…"))
     started = time.perf_counter()
     deadline = time.monotonic() + SETTLE_BUDGET
     while True:
         if _safe_remove(disk.pnp_id, details):
-            details.append(f"移除设备阶段用时 {time.perf_counter() - started:.2f} s")
+            details.append(L(f"移除设备阶段用时 {time.perf_counter() - started:.2f} s",
+                         f"Device removal stage took {time.perf_counter() - started:.2f} s"))
             return EjectResult(True, "pnp_remove", details)
         if time.monotonic() >= deadline:
             break
         time.sleep(0.4)
-    details.append(f"移除设备阶段用时 {time.perf_counter() - started:.2f} s")
-    details.append("设备保持原状，可以稍后重试。")
+    details.append(L(f"移除设备阶段用时 {time.perf_counter() - started:.2f} s",
+                     f"Device removal stage took {time.perf_counter() - started:.2f} s"))
+    details.append(L("设备保持原状，可以稍后重试。",
+                     "Device left untouched; try again later."))
     return EjectResult(False, "device_veto", details)
 
 
 def stage_hint(stage: str) -> str:
     """把阶段名翻译成用户能看懂的一句话。"""
     return {
-        "shell_com": "系统已弹出该设备，可以拔下。",
-        "pnp_remove": "系统已安全移除设备，盘符已释放，可以拔下。",
-        "device_veto": "设备仍在使用中（通常是资源管理器还开着该盘，或 Windows 搜索正在索引）。"
-                       "已保持原状；等几秒再点一次「弹出」通常就能成功，或关掉该盘的资源管理器窗口。"
-                       "若资源管理器里看不到盘符，重新插拔一次即可恢复。",
+        "shell_com": L("系统已弹出该设备，可以拔下。",
+                       "The system ejected the device; it can be unplugged."),
+        "pnp_remove": L("系统已安全移除设备，盘符已释放，可以拔下。",
+                        "The device was safely removed and the drive letter released; "
+                        "it can be unplugged."),
+        "device_veto": L("设备仍在使用中（通常是资源管理器还开着该盘，或 Windows 搜索正在索引）。"
+                         "已保持原状；等几秒再点一次「弹出」通常就能成功，或关掉该盘的资源管理器窗口。"
+                         "若资源管理器里看不到盘符，重新插拔一次即可恢复。",
+                         "The device is still in use (usually Explorer has the drive open, or "
+                         "Windows Search is indexing it). It was left untouched; waiting a few "
+                         "seconds and ejecting again usually works, or close that Explorer window. "
+                         "If the drive letter disappears from Explorer, re-plug once to recover."),
     }.get(stage, "")

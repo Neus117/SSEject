@@ -28,8 +28,9 @@ from datetime import datetime
 from tkinter import ttk
 from typing import Callable, List, Optional
 
-from core import applog, disk_query, diskpart_ops, eject, settings, version
+from core import applog, disk_query, diskpart_ops, eject, i18n, settings, version
 from core.disk_query import DiskInfo
+from core.i18n import L
 from gui import theme, win32
 from gui.dialog import Dialogs
 from gui.help_window import HelpWindow
@@ -41,14 +42,18 @@ from gui.tooltip import Tooltip
 LOG_MAX_LINES = 500
 
 _ACTION_TITLES = {
-    "eject": "确认弹出",
+    "eject": ("确认弹出", "Confirm eject"),
 }
 
 _ACTION_CONFIRM = {
-    "eject": "将弹出磁盘 {name}。\n"
-             "如果设备正被其他程序占用，程序会等系统释放后自动重试（最多约 10 秒），"
-             "不会改动磁盘的联机/脱机状态。\n"
-             "未保存的数据可能丢失，继续？",
+    "eject": ("将弹出磁盘 {name}。\n"
+              "如果设备正被其他程序占用，程序会等系统释放后自动重试（最多约 10 秒），"
+              "不会改动磁盘的联机/脱机状态。\n"
+              "未保存的数据可能丢失，继续？",
+              "Disk {name} will be ejected.\n"
+              "If another program is using it, the tool retries automatically for up to "
+              "10 seconds and never changes the disk's online/offline state.\n"
+              "Unsaved data may be lost. Continue?"),
 }
 
 
@@ -57,6 +62,7 @@ class MainWindow:
         self.root = root
         self.admin = admin_state == "admin"
         self.user_settings = settings.load()
+        i18n.set_language(self.user_settings.get("language", ""))
         self.palette = theme.pick_palette(self._theme_override())
         self.metrics = theme.Metrics(root)
         self.fonts = theme.Fonts(root)
@@ -87,7 +93,7 @@ class MainWindow:
         px = self.metrics.px
         palette = self.palette
         self.root.configure(background=palette.background)
-        self.root.title(version.APP_TITLE)
+        self.root.title(version.app_title())
         self.root.minsize(px(theme.WINDOW_MIN_WIDTH), px(theme.WINDOW_MIN_HEIGHT))
         self.root.geometry(f"{px(theme.WINDOW_WIDTH)}x{px(theme.WINDOW_HEIGHT)}")
 
@@ -162,12 +168,13 @@ class MainWindow:
         header.grid(row=0, column=0, sticky="ew", pady=(0, px(theme.SPACE_2)))
         header.columnconfigure(2, weight=1)
 
-        ttk.Label(header, text="磁盘", style="Section.TLabel").grid(row=0, column=0, sticky="w")
+        ttk.Label(header, text=L("磁盘", "Disks"), style="Section.TLabel").grid(
+            row=0, column=0, sticky="w")
         self.count_label = ttk.Label(header, text="—", style="Secondary.TLabel")
         self.count_label.grid(row=0, column=1, sticky="w", padx=(px(theme.SPACE_2), 0))
 
         # 提示/选中摘要放在标题后面，不再单独占一行
-        self.summary_var = tk.StringVar(value="选中一个可移动磁盘")
+        self.summary_var = tk.StringVar(value=L("选中一个可移动磁盘", "Select a removable disk"))
         ttk.Label(header, textvariable=self.summary_var,
                   style="Secondary.TLabel").grid(
             row=0, column=2, sticky="w", padx=(px(theme.SPACE_3), px(theme.SPACE_2))
@@ -197,11 +204,15 @@ class MainWindow:
         self.btn_settings = self._icon_button(tools, "gear", command=self._open_settings)
         self.btn_settings.grid(row=0, column=4)
 
-        self._tip(self.btn_refresh, "重新枚举磁盘（F5）")
-        self._tip(self.btn_show_all, "连内置磁盘一起列出；内置磁盘不能执行磁盘操作")
-        self._tip(self.btn_eject, "弹出磁盘；被占用时等系统释放并自动重试，失败会说明原因")
-        self._tip(self.btn_help, "使用说明")
-        self._tip(self.btn_settings, "设置")
+        self._tip(self.btn_refresh, L("重新枚举磁盘（F5）", "Re-scan disks (F5)"))
+        self._tip(self.btn_show_all,
+                  L("连内置磁盘一起列出；内置磁盘不能执行磁盘操作",
+                    "List internal disks too; disk operations are limited to external disks"))
+        self._tip(self.btn_eject,
+                  L("弹出磁盘；被占用时等系统释放并自动重试，失败会说明原因",
+                    "Eject the disk; retries while the system releases it, and explains any failure"))
+        self._tip(self.btn_help, L("使用说明", "User guide"))
+        self._tip(self.btn_settings, L("设置", "Settings"))
 
     def _open_settings(self) -> None:
         if self.busy:
@@ -209,7 +220,9 @@ class MainWindow:
         SettingsWindow(self.root, palette=self.palette, metrics=self.metrics,
                        fonts=self.fonts, icon_path=self.icon_path,
                        theme_mode=self.user_settings.get("theme", "system"),
-                       on_theme=self._apply_theme)
+                       language=self.user_settings.get("language", ""),
+                       on_theme=self._apply_theme,
+                       on_language=self._apply_language)
 
     def _apply_theme(self, mode: str) -> None:
         self.user_settings = settings.update(theme=mode)
@@ -217,12 +230,20 @@ class MainWindow:
         theme.apply_ttk_styles(self.root, self.palette, self.fonts, self.metrics)
         self.dialogs = Dialogs(self.root, palette=self.palette, metrics=self.metrics,
                                fonts=self.fonts, icon_path=self.icon_path)
+        self._rebuild()
+
+    def _apply_language(self, mode: str) -> None:
+        self.user_settings = settings.update(language=mode)
+        i18n.set_language(mode)
+        self._rebuild()
+
+    def _rebuild(self) -> None:
+        """按当前主题/语言重建界面；不重新枚举磁盘（用上一次的查询结果）。"""
         for child in self.root.winfo_children():
             child.destroy()
         self._build_ui()
         self._refresh_chrome()
         self._restore_log()
-        # 主题/语言切换只重建界面：用上一次的查询结果重画列表，不重新枚举磁盘
         if getattr(self, "_last_disks", None) is not None:
             self._refresh_done(self._last_disks, [], quiet=True)
 
@@ -243,12 +264,12 @@ class MainWindow:
             height=5,  # 最少 5 行；有磁盘时按条数增长（见 _refresh_done）
         )
         headings = {
-            "disk": ("磁盘", 56, "center"),
-            "model": ("型号", 260, "w"),
-            "letters": ("盘符", 80, "center"),
-            "size": ("容量", 96, "e"),
-            "type": ("类型", 64, "center"),
-            "state": ("状态", 64, "center"),
+            "disk": (L("磁盘", "Disk"), 56, "center"),
+            "model": (L("型号", "Model"), 260, "w"),
+            "letters": (L("盘符", "Drive"), 80, "center"),
+            "size": (L("容量", "Size"), 96, "e"),
+            "type": (L("类型", "Type"), 64, "center"),
+            "state": (L("状态", "State"), 64, "center"),
         }
         for key, (text, width, anchor) in headings.items():
             self.tree.heading(key, text=text, anchor=anchor)
@@ -273,11 +294,12 @@ class MainWindow:
         header = ttk.Frame(parent)
         header.grid(row=0, column=0, sticky="ew", pady=(0, px(theme.SPACE_1)))
         header.columnconfigure(0, weight=1)
-        ttk.Label(header, text="日志", style="Section.TLabel").grid(row=0, column=0, sticky="w")
-        self.btn_clear_log = ttk.Button(header, text="清空", style="Tool.TButton",
+        ttk.Label(header, text=L("日志", "Log"),
+                  style="Section.TLabel").grid(row=0, column=0, sticky="w")
+        self.btn_clear_log = ttk.Button(header, text=L("清空", "Clear"), style="Tool.TButton",
                                         command=self._clear_log)
         self.btn_clear_log.grid(row=0, column=1, sticky="e")
-        self.btn_open_log = ttk.Button(header, text="打开日志", style="Tool.TButton",
+        self.btn_open_log = ttk.Button(header, text=L("打开日志", "Open log"), style="Tool.TButton",
                                        command=self._open_log)
         self.btn_open_log.grid(row=0, column=2, sticky="e",
                                padx=(px(theme.SPACE_2), 0))
@@ -306,7 +328,7 @@ class MainWindow:
         bar.grid(row=3, column=0, sticky="ew", pady=(px(theme.SPACE_2), 0))
         bar.columnconfigure(1, weight=1)
 
-        self.status_var = tk.StringVar(value="就绪")
+        self.status_var = tk.StringVar(value=L("就绪", "Ready"))
         ttk.Label(bar, textvariable=self.status_var).grid(row=0, column=0, sticky="w")
 
         # 进度条固定宽度放在中间：显示/隐藏不会挤动右边的标签
@@ -321,7 +343,7 @@ class MainWindow:
 
         self.admin_label = ttk.Label(
             bar,
-            text="管理员" if self.admin else "只读模式",
+            text=L("管理员", "Administrator") if self.admin else L("只读模式", "Read-only"),
             style="Secondary.TLabel",
             foreground=self.palette.success if self.admin else self.palette.warning,
         )
@@ -329,7 +351,9 @@ class MainWindow:
         ttk.Label(bar, text=f"v{version.APP_VERSION}",
                   style="Secondary.TLabel").grid(row=0, column=3, sticky="e")
         if not self.admin:
-            self._tip(self.admin_label, "未获得管理员权限：可以查看磁盘，但不能执行磁盘操作")
+            self._tip(self.admin_label,
+                      L("未获得管理员权限：可以查看磁盘，但不能执行磁盘操作",
+                        "No administrator rights: disks can be viewed but not operated on"))
 
     def _tip(self, widget, text: str) -> None:
         self._tooltips.append(
@@ -364,7 +388,7 @@ class MainWindow:
                 try:
                     callback(*args, **kwargs)
                 except Exception as exc:  # pragma: no cover - 界面回调兜底
-                    applog.write("error", f"界面回调异常：{exc!r}")
+                    applog.write("error", L(f"界面回调异常：{exc!r}", f"UI callback failed: {exc!r}"))
         except queue.Empty:
             pass
         self.root.after(50, self._poll_queue)
@@ -379,8 +403,8 @@ class MainWindow:
         if self.busy:
             return
         show_all = self.show_all
-        self._set_busy(True, "正在刷新磁盘…")
-        self._log("开始刷新磁盘…", "info")
+        self._set_busy(True, L("正在刷新磁盘…", "Scanning disks…"))
+        self._log(L("开始刷新磁盘…", "Scanning disks…"), "info")
 
         def worker() -> None:
             try:
@@ -407,16 +431,17 @@ class MainWindow:
 
     def _refresh_failed(self, error: Exception) -> None:
         self._set_busy(False)
-        self._log(f"刷新失败：{error}", "error")
-        self.status_var.set("刷新失败")
-        self.dialogs.error("刷新失败", str(error))
+        self._log(L(f"刷新失败：{error}", f"Scan failed: {error}"), "error")
+        self.status_var.set(L("刷新失败", "Scan failed"))
+        self.dialogs.error(L("刷新失败", "Scan failed"), str(error))
 
     def _refresh_done(self, disks: List[DiskInfo],
                       recovered: Optional[List[int]] = None,
                       quiet: bool = False) -> None:
         self._last_disks = list(disks)
         for index in recovered or []:
-            self._log(f"磁盘 {index} 之前处于脱机状态，已自动恢复联机", "ok")
+            self._log(L(f"磁盘 {index} 之前处于脱机状态，已自动恢复联机",
+                          f"Disk {index} was left offline and has been set online again"), "ok")
         previous = set(self.tree.selection())
         self.tree.delete(*self.tree.get_children())
         for disk in disks:
@@ -435,27 +460,34 @@ class MainWindow:
 
         external = sum(1 for disk in disks if disk.is_external)
         if self.show_all:
-            self.count_label.configure(text=f"{len(disks)} 个 · 外接 {external} 个")
+            self.count_label.configure(
+                text=L(f"{len(disks)} 个 · 外接 {external} 个",
+                        f"{len(disks)} total · {external} external"))
         else:
-            self.count_label.configure(text=f"{len(disks)} 个")
+            self.count_label.configure(text=L(f"{len(disks)} 个", f"{len(disks)}"))
         self._set_busy(False)
-        self.status_var.set("就绪")
+        self.status_var.set(L("就绪", "Ready"))
         self._update_empty_state(disks)
         self._update_summary()
         if quiet:
             return
         if disks:
-            self._log(f"已刷新：找到 {len(disks)} 个磁盘。", "ok")
+            self._log(L(f"已刷新：找到 {len(disks)} 个磁盘。",
+                      f"Scan finished: {len(disks)} disk(s) found."), "ok")
         elif self.show_all:
-            self._log("已刷新：没有找到任何磁盘。", "warn")
+            self._log(L("已刷新：没有找到任何磁盘。", "Scan finished: no disks found."), "warn")
         else:
-            self._log("已刷新：没有可移动磁盘。可点「显示所有磁盘」查看全部磁盘。", "warn")
+            self._log(L("已刷新：没有可移动磁盘。可点「显示所有磁盘」查看全部磁盘。",
+                      "Scan finished: no removable disks. Use “show all disks” to list every disk."),
+                  "warn")
         # 外接盘没有盘符时在资源管理器里看不到，但磁盘本身是好的——要说清楚
         for disk in disks:
             if disk.is_external and not disk.letters:
                 self._log(
-                    f"磁盘 {disk.index} 当前没有盘符，资源管理器里不会显示；"
-                    "可在“磁盘管理”里为它分配盘符。",
+                    L(f"磁盘 {disk.index} 当前没有盘符，资源管理器里不会显示；"
+                      "可在“磁盘管理”里为它分配盘符。",
+                      f"Disk {disk.index} has no drive letter, so Explorer will not show it; "
+                      "assign one in “Disk Management”."),
                     "warn",
                 )
 
@@ -465,23 +497,32 @@ class MainWindow:
             return
         orphans = disk_query.orphan_letters()
         if self.show_all:
-            text = "没有检测到磁盘"
+            text = L("没有检测到磁盘", "No disks detected")
         else:
-            text = "没有检测到可移动磁盘\n插入设备后点「刷新」\n\n也可以点「显示所有磁盘」查看全部磁盘"
+            text = L("没有检测到可移动磁盘\n插入设备后点「刷新」\n\n"
+                     "也可以点「显示所有磁盘」查看全部磁盘",
+                     "No removable disk detected\nPlug in a device, then click “refresh”\n\n"
+                     "You can also click “show all disks” to list every disk")
         if orphans:
-            letters = "、".join(f"{letter}:" for letter in orphans)
-            text += (f"\n\n检测到盘符 {letters} 没有对应的磁盘：设备可能已被移除、"
-                     "卷还没清理，重启或重新插拔后会恢复正常")
+            separator = "、" if i18n.language() == "zh" else ", "
+            letters = separator.join(f"{letter}:" for letter in orphans)
+            text += L(f"\n\n检测到盘符 {letters} 没有对应的磁盘：设备可能已被移除、"
+                      "卷还没清理，重启或重新插拔后会恢复正常",
+                      f"\n\nDrive letter(s) {letters} have no disk behind them: the device may "
+                      "be gone or the volume not cleaned up; restarting or re-plugging fixes it")
         self.empty_label.configure(text=text)
         # 在表头以下的区域里垂直居中：rely 以整个框为基准，补半行抵消表头
         self.empty_label.place(relx=0.5, rely=0.5, anchor="center",
                                y=self.metrics.px(theme.ROW_HEIGHT // 2))
         self.empty_label.lift()
         if orphans:
+            separator = "、" if i18n.language() == "zh" else ", "
             self._log(
-                "检测到没有对应磁盘的盘符："
-                + "、".join(f"{letter}:" for letter in orphans)
-                + "（通常是设备已移除、卷未清理；重启或重新插拔即可恢复）",
+                L("检测到没有对应磁盘的盘符：", "Drive letters without a disk: ")
+                + separator.join(f"{letter}:" for letter in orphans)
+                + L("（通常是设备已移除、卷未清理；重启或重新插拔即可恢复）",
+                    " (usually the device is gone and the volume not cleaned up; "
+                    "restart or re-plug to recover)"),
                 "warn",
             )
 
@@ -503,14 +544,14 @@ class MainWindow:
     def _update_summary(self) -> None:
         disk = self._selected_disk()
         if disk is None:
-            self.summary_var.set("选中一个可移动磁盘进行操作")
+            self.summary_var.set(L("选中一个可移动磁盘进行操作", "Select a removable disk to operate on"))
             return
-        parts = [f"磁盘 {disk.index}", disk.model or "未知型号"]
+        parts = [L(f"磁盘 {disk.index}", f"Disk {disk.index}"), disk.model or L("未知型号", "Unknown model")]
         if disk.letters:
             parts.append(disk.letters_text)
         parts.append(disk.size_text)
         if disk.is_offline is not None:
-            parts.append("已脱机" if disk.is_offline else "联机")
+            parts.append(L("已脱机", "Offline") if disk.is_offline else L("联机", "Online"))
         self.summary_var.set(" · ".join(parts))
 
     def _update_actions(self) -> None:
@@ -536,32 +577,41 @@ class MainWindow:
             return
         disk = self._selected_disk()
         if disk is None:
-            self.dialogs.info("没有选中磁盘", "请先在列表中选择一个磁盘。")
+            self.dialogs.info(L("没有选中磁盘", "No disk selected"),
+                              L("请先在列表中选择一个磁盘。",
+                                "Select a disk in the list first."))
             return
         if not self.admin:
             self.dialogs.warning(
-                "需要管理员权限",
-                "磁盘操作需要管理员权限。\n"
-                "本次启动未获得权限，只能查看磁盘。\n\n"
-                "请右键程序图标，选择“以管理员身份运行”。",
+                L("需要管理员权限", "Administrator rights required"),
+                L("磁盘操作需要管理员权限。\n"
+                  "本次启动未获得权限，只能查看磁盘。\n\n"
+                  "请右键程序图标，选择“以管理员身份运行”。",
+                  "Disk operations require administrator rights.\n"
+                  "This run has no elevation, so disks can only be viewed.\n\n"
+                  "Right-click the program icon and choose “Run as administrator”."),
             )
             return
         if not disk.is_external:
             self.dialogs.info(
-                "内置磁盘不能操作",
-                "为防误操作，内置磁盘不能脱机、联机或弹出。",
+                L("内置磁盘不能操作", "Internal disks cannot be operated on"),
+                L("为防误操作，内置磁盘不能脱机、联机或弹出。",
+                  "To prevent mistakes, internal disks cannot be set offline, online "
+                  "or ejected."),
             )
             return
         if kind in _ACTION_CONFIRM:
-            name = f"{disk.index}（{disk.letters_text}）"
+            name = f"{disk.index}（{disk.letters_text}）" if i18n.language() == "zh" \
+                else f"{disk.index} ({disk.letters_text})"
             if not self.dialogs.confirm(
-                _ACTION_TITLES[kind], _ACTION_CONFIRM[kind].format(name=name),
+                L(*_ACTION_TITLES[kind]), L(*_ACTION_CONFIRM[kind]).format(name=name),
                 default_yes=False,
             ):
                 return
 
         self._set_busy(True, self._action_status(kind))
-        self._log(f"开始执行：{self._action_status(kind).rstrip('…')}", "info")
+        self._log(L("开始执行：", "Starting: ") + self._action_status(kind).rstrip("…"),
+                  "info")
 
         def worker() -> None:
             started = time.perf_counter()
@@ -576,8 +626,9 @@ class MainWindow:
         threading.Thread(target=worker, daemon=True, name=f"qfe-{kind}").start()
 
     @staticmethod
-    def _action_status(kind: str) -> str:
-        return {"eject": "正在弹出…"}[kind]
+    def _action_status(kind: str, lang: str = "") -> str:
+        pair = {"eject": ("正在弹出…", "Ejecting…")}[kind]
+        return pair[1] if lang == "en" else L(*pair)
 
     def _run_action(self, kind: str, disk: DiskInfo):
         # 阶段回调走队列回主线程：worker 线程不碰 Tk
@@ -587,17 +638,21 @@ class MainWindow:
 
     def _action_failed(self, kind: str, disk: DiskInfo, error: Exception) -> None:
         self._set_busy(False)
-        self.status_var.set("操作失败")
-        self._log(f"磁盘 {disk.index} {self._action_status(kind).rstrip('…')}失败：{error}", "error")
-        self.dialogs.error("操作失败", str(error))
+        self.status_var.set(L("操作失败", "Failed"))
+        self._log(L(f"磁盘 {disk.index} {self._action_status(kind).rstrip('…')}失败：{error}",
+                    f"Disk {disk.index}: {self._action_status(kind, 'en').rstrip('…')} failed: {error}"),
+                  "error")
+        self.dialogs.error(L("操作失败", "Failed"), str(error))
         self.refresh_disks()
 
     def _action_done(self, kind: str, disk: DiskInfo, result, elapsed: float) -> None:
         self._set_busy(False)
         success = bool(result.success)
         self._log(
-            f"磁盘 {disk.index} 弹出{'成功' if success else '未成功'}"
-            f"（阶段 {result.stage}，总耗时 {elapsed:.2f} s）",
+            L(f"磁盘 {disk.index} 弹出{'成功' if success else '未成功'}"
+              f"（阶段 {result.stage}，总耗时 {elapsed:.2f} s）",
+              f"Disk {disk.index}: eject {'succeeded' if success else 'did not succeed'} "
+              f"(stage {result.stage}, {elapsed:.2f} s)"),
             "ok" if success else "warn",
         )
         for line in result.details:
@@ -605,9 +660,11 @@ class MainWindow:
         hint = eject.stage_hint(result.stage)
         if hint:
             self._log(hint, "ok" if success else "warn")
-        self.status_var.set("已弹出" if success else "弹出未成功")
+        self.status_var.set(L("已弹出", "Ejected") if success
+                            else L("弹出未成功", "Eject failed"))
         if not success:
-            self.dialogs.warning("没能弹出", hint or "设备仍在使用中。")
+            self.dialogs.warning(L("没能弹出", "Could not eject"),
+                                 hint or L("设备仍在使用中。", "The device is still in use."))
         self.refresh_disks()
 
     # -------------------------------------------------------------- 日志 --
@@ -642,7 +699,9 @@ class MainWindow:
 
     def _open_log(self) -> None:
         if not applog.open_in_explorer():
-            self.dialogs.warning("无法打开日志", f"日志路径：{applog.log_path()}")
+            self.dialogs.warning(L("无法打开日志", "Cannot open the log"),
+                                 L(f"日志路径：{applog.log_path()}",
+                                   f"Log path: {applog.log_path()}"))
 
     # -------------------------------------------------------------- 状态 --
     def _set_busy(self, busy: bool, text: str = "") -> None:

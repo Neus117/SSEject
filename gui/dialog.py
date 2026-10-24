@@ -17,6 +17,7 @@ import tkinter as tk
 from tkinter import ttk
 from typing import List, Optional
 
+from core.i18n import L
 from gui import win32
 
 #: 正文的换行宽度（逻辑像素）
@@ -137,17 +138,17 @@ class Dialogs:
 
     # ------------------------------------------------------------------ API --
     def info(self, title: str, message: str) -> None:
-        self._run(title, message, kind="info", buttons=[("确定", True, True)], default=0)
+        self._run(title, message, kind="info", buttons=[(L("确定", "OK"), True, True)], default=0)
 
     def warning(self, title: str, message: str) -> None:
-        self._run(title, message, kind="warning", buttons=[("确定", True, False)], default=0)
+        self._run(title, message, kind="warning", buttons=[(L("确定", "OK"), True, False)], default=0)
 
     def error(self, title: str, message: str) -> None:
-        self._run(title, message, kind="error", buttons=[("确定", True, False)], default=0)
+        self._run(title, message, kind="error", buttons=[(L("确定", "OK"), True, False)], default=0)
 
     def confirm(self, title: str, message: str, *, default_yes: bool = False) -> bool:
         """是 / 否。``default_yes=False`` 时"否"是默认动作，也是强调色所在。"""
-        buttons = [("是", True, default_yes), ("否", False, not default_yes)]
+        buttons = [(L("是", "Yes"), True, default_yes), (L("否", "No"), False, not default_yes)]
         return bool(self._run(title, message, kind="question", buttons=buttons,
                               default=0 if default_yes else 1))
 
