@@ -49,6 +49,11 @@ REFRESH_STROKE = 0.100                             # × 缩放 ≈ 0.090 图标�
 REFRESH_ARC = (42, 325)
 REFRESH_TAIL = ((0.628, 0.370), (0.886, 0.370), (0.886, 0.113))  # 横尾端 → 箭尖 → 竖顶端
 
+#: 弹出图标（三角 + 横杠）的比例，见 :func:`_eject`
+EJECT_APEX_Y, EJECT_BASE_Y, EJECT_HALF_W = 0.125, 0.500, 0.345
+EJECT_BAR_Y = (0.646, 0.826)                       # 横杠上下沿（比原来上提 1 px @35px）
+EJECT_BAR_RADIUS = 0.055
+
 #: 磁盘图标（“显示全部磁盘”按钮）的比例，见 :func:`_disk`
 DISK_SCALE = 1.08                                  # 整体缩放（笔画一起缩放）
 DISK_LEFT, DISK_TOP, DISK_RIGHT, DISK_BOTTOM = 0.110, 0.160, 0.890, 0.840
@@ -155,18 +160,23 @@ def _help(draw, box, ink, _background):
 
 
 def _eject(draw, box, ink, _background=None, app_icon=None):
+    """弹出：实心三角形 + 下面一条圆角横杠。
+
+    三角形与横杠的间距 = 基准 0.500 与横杠上沿之差（用户要求拉近一点，横杠上提
+    1 px @35px 图标 ≈ 0.029 图标边长）。左右对称（0.155 / 0.845），所以水平方向
+    天然居中，不必再补偏移。
+    """
     x0, y0, x1, y1 = box
     size = x1 - x0
-    apex = (x0 + size * 0.50, y0 + size * 0.125)
-    left = (x0 + size * 0.155, y0 + size * 0.500)
-    right = (x0 + size * 0.845, y0 + size * 0.500)
-    cx = (apex[0] + left[0] + right[0]) / 3.0
-    cy = (apex[1] + left[1] + right[1]) / 3.0
+    apex = (x0 + size * 0.50, y0 + size * EJECT_APEX_Y)
+    left = (x0 + size * (0.5 - EJECT_HALF_W), y0 + size * EJECT_BASE_Y)
+    right = (x0 + size * (0.5 + EJECT_HALF_W), y0 + size * EJECT_BASE_Y)
     # 只填多边形：不再在底角补圆，免得出现两个"肿瘤"般的凸起
     draw.polygon((apex, left, right), fill=ink)
-    bar = (x0 + size * 0.155, y0 + size * 0.675,
-           x0 + size * 0.845, y0 + size * 0.855)
-    draw.rounded_rectangle(bar, radius=int(round(size * 0.055)), fill=ink)
+    bar_top, bar_bottom = EJECT_BAR_Y
+    bar = (x0 + size * (0.5 - EJECT_HALF_W), y0 + size * bar_top,
+           x0 + size * (0.5 + EJECT_HALF_W), y0 + size * bar_bottom)
+    draw.rounded_rectangle(bar, radius=int(round(size * EJECT_BAR_RADIUS)), fill=ink)
 
 
 def _monitor(draw, box, ink, _background):
