@@ -54,21 +54,21 @@ def _gear(draw, box, ink, background):
 
 
 def _refresh(draw, box, ink, _background):
-    """粗圆环（缺口在右）+ 右上折角箭头：横线在上、竖线在右，圆头收尾。"""
+    """参考图：整圈粗圆环、缺口在右；箭头是右上角的折角（横线在上、竖线在右）。"""
     x0, y0, x1, y1 = box
     size = x1 - x0
     cx, cy = (x0 + x1) / 2.0, (y0 + y1) / 2.0
     radius = size * 0.345
     width = max(1.8, size * 0.150)
     draw.arc((cx - radius, cy - radius, cx + radius, cy + radius),
-             start=320, end=200, fill=ink, width=int(round(width)))
+             start=40, end=320, fill=ink, width=int(round(width)))
     half = width / 2.0
     right_x = cx + radius
-    top_y = cy - size * 0.300
-    draw.line((right_x, top_y, right_x, cy - size * 0.02), fill=ink, width=int(round(width)))
+    top_y = cy - radius * 0.72
     draw.line((cx + size * 0.02, top_y, right_x, top_y), fill=ink, width=int(round(width)))
-    for px_, py_ in ((right_x, top_y), (right_x, cy - size * 0.02),
-                     (cx + size * 0.02, top_y)):
+    draw.line((right_x, top_y, right_x, cy + size * 0.02), fill=ink, width=int(round(width)))
+    for px_, py_ in ((cx + size * 0.02, top_y), (right_x, top_y),
+                     (right_x, cy + size * 0.02)):
         draw.ellipse((px_ - half, py_ - half, px_ + half, py_ + half), fill=ink)
 
 

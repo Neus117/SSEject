@@ -197,7 +197,7 @@ class Fonts:
                                 size=FONT_BODY_PT, weight="bold")
         # 单字符图标（如帮助的"?"）：字号按图标视觉高度给，和齿轮等大
         self.glyph = tkfont.Font(root=root, name="QfeGlyph", family=self.family,
-                                 size=FONT_BODY_PT + 4, weight="bold")
+                                 size=FONT_BODY_PT + 7, weight="bold")
         self.mono = tkfont.Font(root=root, name="QfeMono", family="Consolas",
                                 size=FONT_SMALL_PT)
         # 让没有显式指定字体的控件（tk.Text / 原生对话框）跟随同一套
@@ -318,7 +318,7 @@ def apply_ttk_styles(root: tk.Misc, palette: Palette, fonts: Fonts,
         bordercolor=palette.border,
         lightcolor=palette.surface,
         darkcolor=palette.surface,
-        padding=(px(10), px(2)),
+        padding=(px(10), px(0)),
         font=fonts.glyph,
     )
     style.map(

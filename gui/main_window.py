@@ -74,6 +74,7 @@ class MainWindow:
         self._icon_images = {}
         self._log_history = []
         self._help: Optional[HelpWindow] = None
+        self._last_disks: Optional[List[DiskInfo]] = None
 
         self._build_ui()
         self._apply_window_chrome()
@@ -245,6 +246,9 @@ class MainWindow:
         self._build_ui()
         self._refresh_chrome()
         self._restore_log()
+        # 主题/语言切换只重建界面：用上一次的查询结果重画列表，不重新枚举磁盘
+        if getattr(self, "_last_disks", None) is not None:
+            self._refresh_done(self._last_disks, [], quiet=True)
 
     def _restore_log(self) -> None:
         history, self._log_history = self._log_history, []
@@ -432,7 +436,9 @@ class MainWindow:
         self.dialogs.error("刷新失败", str(error))
 
     def _refresh_done(self, disks: List[DiskInfo],
-                      recovered: Optional[List[int]] = None) -> None:
+                      recovered: Optional[List[int]] = None,
+                      quiet: bool = False) -> None:
+        self._last_disks = list(disks)
         for index in recovered or []:
             self._log(f"磁盘 {index} 之前处于脱机状态，已自动恢复联机", "ok")
         previous = set(self.tree.selection())
@@ -460,6 +466,8 @@ class MainWindow:
         self.status_var.set("就绪")
         self._update_empty_state(disks)
         self._update_summary()
+        if quiet:
+            return
         if disks:
             self._log(f"已刷新：找到 {len(disks)} 个磁盘。", "ok")
         elif self.show_all:
