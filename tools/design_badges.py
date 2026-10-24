@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import math
 from pathlib import Path
-from typing import List, Optional, Sequence, Tuple
+from typing import Tuple
 
 from PIL import Image, ImageDraw
 
@@ -32,64 +32,12 @@ SUPERSAMPLE = 16
 #: 逻辑边长
 BADGE = 43
 
-#: 警告色：橙黄但色相往明黄靠（#E8A33D 太深，#FCE100 在浅色底上太飘）。
-#: 两种主题统一用这一支——浅色下靠饱和度和深色感叹号保证可读性。
-YELLOW = (255, 185, 0)          # #FFB900
-INK = (32, 31, 30)              # #201F1E 近黑
+#: 错误/信息徽标的圆形底色（警告徽标是黑/白线框，不用这两个颜色）
 RED = (196, 43, 28)
 BLUE = (0, 103, 192)
 WHITE = (255, 255, 255)
 
-#: 三角形三个顶点（画布归一化坐标，等边：底 0.89、高 0.77）
-TRIANGLE = ((0.5, 0.095), (0.945, 0.865), (0.055, 0.865))
-#: 圆角半径（归一化）。顶点单独用更小的半径：三段式圆角=0.06 时，
-#: 60° 的顶点会被削出一小段"平顶"，看起来像被切掉了一块。
-CORNER = 0.07
-CORNER_APEX = 0.04
 
-
-def _rounded_polygon(vertices: Sequence[Tuple[float, float]],
-                     radius: float,
-                     apex_index: int = 0,
-                     apex_radius: Optional[float] = None) -> List[Tuple[float, float]]:
-    """把多边形顶点替换成"直线段 + 圆角弧"，返回可填充的点列。"""
-    points: List[Tuple[float, float]] = []
-    count = len(vertices)
-    for index, vertex in enumerate(vertices):
-        corner_radius = apex_radius if (index == apex_index and apex_radius) else radius
-        prev_vertex = vertices[index - 1]
-        next_vertex = vertices[(index + 1) % count]
-        v1 = (prev_vertex[0] - vertex[0], prev_vertex[1] - vertex[1])
-        v2 = (next_vertex[0] - vertex[0], next_vertex[1] - vertex[1])
-        len1 = math.hypot(*v1) or 1.0
-        len2 = math.hypot(*v2) or 1.0
-        u1 = (v1[0] / len1, v1[1] / len1)
-        u2 = (v2[0] / len2, v2[1] / len2)
-        dot = max(-1.0, min(1.0, u1[0] * u2[0] + u1[1] * u2[1]))
-        theta = math.acos(dot)
-        if theta < 1e-6:
-            points.append(vertex)
-            continue
-        distance = corner_radius / math.tan(theta / 2.0)
-        distance = min(distance, len1 * 0.45, len2 * 0.45)
-        arc_radius = distance * math.tan(theta / 2.0)
-        start = (vertex[0] + u1[0] * distance, vertex[1] + u1[1] * distance)
-        end = (vertex[0] + u2[0] * distance, vertex[1] + u2[1] * distance)
-        bisector = (u1[0] + u2[0], u1[1] + u2[1])
-        length = math.hypot(*bisector) or 1.0
-        bisector = (bisector[0] / length, bisector[1] / length)
-        centre_distance = arc_radius / math.sin(theta / 2.0)
-        centre = (vertex[0] + bisector[0] * centre_distance,
-                  vertex[1] + bisector[1] * centre_distance)
-        angle_start = math.atan2(start[1] - centre[1], start[0] - centre[0])
-        angle_end = math.atan2(end[1] - centre[1], end[0] - centre[0])
-        delta = (angle_end - angle_start + math.pi) % (2 * math.pi) - math.pi
-        steps = 12
-        for step in range(steps + 1):
-            angle = angle_start + delta * step / steps
-            points.append((centre[0] + arc_radius * math.cos(angle),
-                           centre[1] + arc_radius * math.sin(angle)))
-    return points
 
 
 def _exclamation(draw: ImageDraw.ImageDraw, s: int, centre_y: float, colour,
@@ -108,14 +56,25 @@ def _render_warning_outline(img, draw, s: int, background, foreground) -> None:
     """线框警告三角（照搬 GUI-of-Edge-TTS 的 `_dialog_warning_icon`）。
 
     视觉：实心外三角 + 用底色挖空的内三角 = 均匀粗线框；感叹号是圆头线段 + 圆点，
-    整组按三角形**重心**垂直居中。参数比例来自那个项目（用户已验收过的样子）。
+    整组按三角形**重心**垂直居中。
+
+    **等边三角形**（用户要求：原来底 0.85、高 0.85 是等腰，两腰比底长）：
+    固定底边 = ``s - 2*margin``，高 = 底 × √3/2 ≈ 0.736 s；再把整枚三角形上移，
+    让它的包围盒在画布里垂直居中——否则会比同尺寸的圆形徽标看着低一截。
     """
     margin = 0.075 * s
+    base = s - 2.0 * margin
+    height = base * math.sqrt(3.0) / 2.0
+    bottom = s - margin
+    top = bottom - height
+    shift = (top + bottom) / 2.0 - s / 2.0      # 包围盒居中
+    top -= shift
+    bottom -= shift
     stroke = 0.062 * s
     cx = s / 2.0
-    apex = (cx, margin)
-    left = (margin, s - margin)
-    right = (s - margin, s - margin)
+    apex = (cx, top)
+    left = (margin, bottom)
+    right = (s - margin, bottom)
     centroid_y = (apex[1] + left[1] + right[1]) / 3.0
     scale = max(0.55, 1.0 - (2.4 * stroke) / max(1.0, s - 2.0 * margin))
     inner = [(cx + (x - cx) * scale, centroid_y + (y - centroid_y) * scale)

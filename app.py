@@ -59,6 +59,18 @@ def _install_excepthook():
     return hook
 
 
+def _ink_ratio(image) -> float:
+    """非底色像素的占比（对话框徽标用来判断是线框版还是实心版）。"""
+    width, height = image.width(), image.height()
+    background = image.get(1, 1)
+    ink = 0
+    for y in range(height):
+        for x in range(width):
+            if image.get(x, y) != background:
+                ink += 1
+    return round(ink / float(max(1, width * height)), 3)
+
+
 def run_diagnostics(output_path: str) -> int:
     """``--diagnose``：跑一遍真实查询与界面构建，把结果写成 JSON。
 
@@ -116,13 +128,13 @@ def run_diagnostics(output_path: str) -> int:
         badge = app.dialogs._badge_image("warning")
         result["badge_px"] = badge.width() if badge is not None else 0
         if badge is not None:
-            # 读顶点附近的像素：圆角版本这里应该是底色（三角形从更下面才开始），
-            # 尖角版本这里会是填充色。用来确认打包后画的到底是哪一版。
+            # 墨迹占比：线框版警告三角约 0.15~0.17，实心三角会在 0.4 以上。
+            # 早先是"读顶点附近一个像素"，三角形几何一改（2026-10-24 改成等边）读数
+            # 就换了含义——量整张图的占比才对几何改动免疫。
             try:
-                result["badge_apex"] = badge.get(badge.width() // 2,
-                                                 max(1, int(badge.height() * 0.13)))
+                result["badge_ink_ratio"] = _ink_ratio(badge)
             except tk.TclError:  # pragma: no cover
-                result["badge_apex"] = None
+                result["badge_ink_ratio"] = None
         help_window = HelpWindow(
             root, palette=app.palette, metrics=app.metrics,
             fonts=app.fonts, icon_path=app.icon_path,
