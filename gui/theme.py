@@ -200,7 +200,7 @@ class Fonts:
                                  size=FONT_BODY_PT + 6, weight="bold")
         # ALL 这类文字图标：字形放大由 Canvas 承担，不会再撑大按钮
         self.all_text = tkfont.Font(root=root, name="QfeAllText", family=self.family,
-                                    size=FONT_BODY_PT + 5, weight="bold")
+                                    size=FONT_BODY_PT + 1, weight="bold")
         self.mono = tkfont.Font(root=root, name="QfeMono", family="Consolas",
                                 size=FONT_SMALL_PT)
         # 让没有显式指定字体的控件（tk.Text / 原生对话框）跟随同一套

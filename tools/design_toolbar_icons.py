@@ -54,29 +54,29 @@ def _gear(draw, box, ink, background):
 
 
 def _refresh(draw, box, ink, _background):
-    """开放圆环（从右下顺时针到右上）+ 朝东南的箭头，形状照参考图。"""
+    """按参考图实测比例重画：环径 0.80、线宽 0.10、尾巴是"横+竖"折角，尖端朝下。
+
+    参考图量得（505×463 归一化）：环外径 ≈0.83、线宽 ≈0.10；
+    横线 y≈0.37 从 x≈0.57 到 0.84；竖线 x≈0.84 从 y≈0.15 到 0.44。
+    """
     x0, y0, x1, y1 = box
     size = x1 - x0
-    cx, cy = (x0 + x1) / 2.0, (y0 + y1) / 2.0
-    radius = size * 0.350
-    width = max(1.6, size * 0.115)
-    # 弧：40° → 320°，缺口在右侧
+    cx, cy = (x0 + x1) / 2.0 - size * 0.02, (y0 + y1) / 2.0
+    radius = size * 0.315
+    width = max(1.4, size * 0.100)
     draw.arc((cx - radius, cy - radius, cx + radius, cy + radius),
              start=40, end=320, fill=ink, width=int(round(width)))
-    # 箭头：接在 320° 端点，尖端沿切线（东南方向）伸出
-    angle = math.radians(320)
-    px_, py_ = cx + radius * math.cos(angle), cy + radius * math.sin(angle)
-    tx, ty = -math.sin(angle), math.cos(angle)
-    nx, ny = math.cos(angle), math.sin(angle)
-    # 底边宽度与线宽一致、中心落在弧端点的中心线上 → 箭头不会漂移
-    # 箭头底边 = 1.8 倍线宽、长度 = 2.2 倍线宽：比线粗一截，才不会被看成"破损"
-    head_half = width * 0.9
-    head_len = width * 2.2
-    draw.polygon([
-        (px_ + nx * head_half, py_ + ny * head_half),
-        (px_ - nx * head_half, py_ - ny * head_half),
-        (px_ + tx * head_len, py_ + ty * head_len),
-    ], fill=ink)
+    half = width / 2.0
+    bar_y = y0 + size * 0.355
+    tail_x = x0 + size * 0.845
+    start_x = x0 + size * 0.560
+    top_y = y0 + size * 0.150
+    bottom_y = y0 + size * 0.455
+    draw.line((start_x, bar_y, tail_x, bar_y), fill=ink, width=int(round(width)))
+    draw.line((tail_x, top_y, tail_x, bottom_y), fill=ink, width=int(round(width)))
+    for px_, py_ in ((start_x, bar_y), (tail_x, bar_y), (tail_x, top_y),
+                     (tail_x, bottom_y)):
+        draw.ellipse((px_ - half, py_ - half, px_ + half, py_ + half), fill=ink)
 
 
 def _help(draw, box, ink, _background):
