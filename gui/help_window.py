@@ -35,12 +35,12 @@ _HELP_TEXT_ZH = """用途
 """
 
 _HELP_TEXT_EN = """What it does
-Ejects removable disks safely. When Windows says the device is in use, nothing needs to be
+Ejects portable disks safely. When Windows says the device is in use, nothing needs to be
 configured: select the disk, click “eject”, and the tool keeps retrying until the system
 releases it.
 
 Steps
-1. Select a disk in the list (removable disks are listed by default).
+1. Select a disk in the list (portable disks are listed by default).
 2. Click “eject”. If another program is using the device, the tool retries once every
    0.4 seconds, for up to about 10 seconds.
 3. On success the drive letter disappears and the device can be unplugged. On failure the

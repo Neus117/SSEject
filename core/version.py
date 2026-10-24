@@ -10,7 +10,7 @@ APP_NAME = "SSEject"
 
 #: 副标题（窗口标题用；随界面语言变）
 APP_SUBTITLE_ZH = "可移动磁盘弹出工具"
-APP_SUBTITLE_EN = "Removable Disk Eject Tool"
+APP_SUBTITLE_EN = "Portable Disk Eject Tool"
 
 #: 版本号
 APP_VERSION = "1.0.0"

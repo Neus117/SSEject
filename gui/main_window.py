@@ -174,7 +174,7 @@ class MainWindow:
         self.count_label.grid(row=0, column=1, sticky="w", padx=(px(theme.SPACE_2), 0))
 
         # 提示/选中摘要放在标题后面，不再单独占一行
-        self.summary_var = tk.StringVar(value=L("选中一个可移动磁盘", "Select a removable disk"))
+        self.summary_var = tk.StringVar(value=L("选中一个可移动磁盘", "Select a portable disk"))
         ttk.Label(header, textvariable=self.summary_var,
                   style="Secondary.TLabel").grid(
             row=0, column=2, sticky="w", padx=(px(theme.SPACE_3), px(theme.SPACE_2))
@@ -478,7 +478,7 @@ class MainWindow:
             self._log(L("已刷新：没有找到任何磁盘。", "Scan finished: no disks found."), "warn")
         else:
             self._log(L("已刷新：没有可移动磁盘。可点「显示所有磁盘」查看全部磁盘。",
-                      "Scan finished: no removable disks. Use “show all disks” to list every disk."),
+                      "Scan finished: no portable disks. Use “show all disks” to list every disk."),
                   "warn")
         # 外接盘没有盘符时在资源管理器里看不到，但磁盘本身是好的——要说清楚
         for disk in disks:
@@ -501,7 +501,7 @@ class MainWindow:
         else:
             text = L("没有检测到可移动磁盘\n插入设备后点「刷新」\n\n"
                      "也可以点「显示所有磁盘」查看全部磁盘",
-                     "No removable disk detected\nPlug in a device, then click “refresh”\n\n"
+                     "No portable disk detected\nPlug in a device, then click “refresh”\n\n"
                      "You can also click “show all disks” to list every disk")
         if orphans:
             separator = "、" if i18n.language() == "zh" else ", "
@@ -544,7 +544,7 @@ class MainWindow:
     def _update_summary(self) -> None:
         disk = self._selected_disk()
         if disk is None:
-            self.summary_var.set(L("选中一个可移动磁盘进行操作", "Select a removable disk to operate on"))
+            self.summary_var.set(L("选中一个可移动磁盘进行操作", "Select a portable disk to operate on"))
             return
         parts = [L(f"磁盘 {disk.index}", f"Disk {disk.index}"), disk.model or L("未知型号", "Unknown model")]
         if disk.letters:
