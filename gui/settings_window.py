@@ -14,6 +14,7 @@ from tkinter import ttk
 from typing import Callable, Optional
 
 from gui import win32
+from gui.iconbutton import IconButton
 from gui.tooltip import Tooltip
 
 #: 逻辑尺寸与间距（全部是 4 的倍数）
@@ -66,10 +67,18 @@ class SettingsWindow:
         row.grid(row=1, column=0, sticky="w", pady=(px(LABEL_GAP), 0))
 
         self.buttons = {}
+        side = px(44)
         for index, (value, icon, tip) in enumerate(_THEME_CHOICES):
-            button = ttk.Button(
-                row, image=self._icon(icon), style="Icon.TButton",
+            size = self._icon_size()
+            button = IconButton(
+                row, palette=palette, metrics=metrics,
+                icon_paths={
+                    "normal": self._icon_path(icon, size, "normal"),
+                    "hover": self._icon_path(icon, size, "hover"),
+                },
                 command=lambda v=value: self._choose(v),
+                width=side, height=side, fonts=fonts,
+                selected=(value == self.mode),
             )
             button.grid(row=0, column=index, padx=(0 if index == 0 else px(10), 0))
             self._tooltips.append(Tooltip(button, tip, palette=palette,
@@ -96,16 +105,9 @@ class SettingsWindow:
         self.parent.wait_window(window)
 
     # ------------------------------------------------------------------ 内部 --
-    def _icon(self, name: str) -> tk.PhotoImage:
-        size = self._icon_size()
-        key = (name, size)
-        image = self._images.get(key)
-        if image is None:
-            path = win32.asset_path(
-                "icons", f"{name}-{size}-{self.palette.name}-normal.png")
-            image = tk.PhotoImage(master=self.window, file=path)
-            self._images[key] = image
-        return image
+    def _icon_path(self, name: str, size: int, state: str):
+        return win32.asset_path(
+            "icons", f"{name}-{size}-{self.palette.name}-{state}.png")
 
     def _icon_size(self) -> int:
         target = self.metrics.px(18)
@@ -114,8 +116,7 @@ class SettingsWindow:
 
     def _refresh_selection(self) -> None:
         for value, button in self.buttons.items():
-            style = "SelectedIcon.TButton" if value == self.mode else "Icon.TButton"
-            button.configure(style=style)
+            button.set_selected(value == self.mode)
 
     def _choose(self, value: str) -> None:
         if value == self.mode:

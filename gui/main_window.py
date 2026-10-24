@@ -33,6 +33,7 @@ from core.disk_query import DiskInfo
 from gui import theme, win32
 from gui.dialog import Dialogs
 from gui.help_window import HelpWindow
+from gui.iconbutton import IconButton
 from gui.settings_window import SettingsWindow
 from gui.tooltip import Tooltip
 
@@ -152,31 +153,38 @@ class MainWindow:
                   background=[("active", palette.accent), ("pressed", palette.accent)],
                   bordercolor=[("active", palette.accent_hover)])
 
+    def _button_height(self) -> int:
+        """图标按钮的高度 = 文字按钮的实际高度（只量一次）。"""
+        if getattr(self, "_btn_height", None) is None:
+            probe = ttk.Button(self.root, text="ALL", style="Tool.TButton")
+            probe.update_idletasks()
+            self._btn_height = probe.winfo_reqheight()
+            probe.destroy()
+        return self._btn_height
+
     def _load_icon(self, icon: str, size: int, state: str):
         key = (icon, size, state, self.palette.name)
         image = self._icon_images.get(key)
         if image is None:
-            path = win32.asset_path(
+            image = win32.asset_path(
                 "icons", f"{icon}-{size}-{self.palette.name}-{state}.png")
-            image = tk.PhotoImage(master=self.root, file=path) if path else None
             self._icon_images[key] = image
         return image
 
-    def _icon_button(self, parent, icon: str, *, command,
-                     accent: bool = False) -> ttk.Button:
+    def _icon_button(self, parent, icon: str, *, command, accent: bool = False):
+        height = self._button_height()
         size = self._icon_size()
-        state = "accent" if accent else "normal"
-        hover_state = "accent_hover" if accent else "hover"
-        image = self._load_icon(icon, size, state)
-        hover = self._load_icon(icon, size, hover_state)
-        style = "AccentIcon.TButton" if accent else "Icon.TButton"
-        button = ttk.Button(parent, image=image, style=style, command=command)
-        button.image = image
-        button.hover_image = hover
-        if hover is not None:
-            button.bind("<Enter>", lambda _event: button.configure(image=button.hover_image))
-            button.bind("<Leave>", lambda _event: button.configure(image=button.image))
-        return button
+        normal = "accent" if accent else "normal"
+        hover = "accent_hover" if accent else "hover"
+        width = height * 2 if accent else height
+        return IconButton(
+            parent, palette=self.palette, metrics=self.metrics,
+            icon_paths={
+                "normal": self._load_icon(icon, size, normal),
+                "hover": self._load_icon(icon, size, hover),
+            },
+            command=command, width=width, height=height, fonts=self.fonts,
+        )
 
     def _build_header(self, parent: ttk.Frame, px) -> None:
         header = ttk.Frame(parent)
@@ -199,17 +207,17 @@ class MainWindow:
 
         self.btn_show_all = ttk.Button(tools, text="ALL", style="Tool.TButton",
                                        command=self._toggle_show_all)
-        self.btn_show_all.grid(row=0, column=0, padx=(0, px(theme.SPACE_1)))
+        self.btn_show_all.grid(row=0, column=0, padx=(0, px(8)))
         self.btn_refresh = self._icon_button(tools, "refresh", command=self.refresh_disks)
-        self.btn_refresh.grid(row=0, column=1, padx=(0, px(theme.SPACE_1)))
+        self.btn_refresh.grid(row=0, column=1, padx=(0, px(8)))
         # 弹出是主操作：点击区域加宽，图标本身保持原比例（PNG 是正方形）
         self.btn_eject = self._icon_button(tools, "eject", accent=True,
                                            command=lambda: self._start_action("eject"))
-        self.btn_eject.grid(row=0, column=2, padx=(px(theme.SPACE_2), px(theme.SPACE_1)))
+        self.btn_eject.grid(row=0, column=2, padx=(0, px(8)))
         self.btn_help = self._icon_button(tools, "help", command=self.show_help)
-        self.btn_help.grid(row=0, column=3, padx=(0, px(theme.SPACE_1)))
+        self.btn_help.grid(row=0, column=3, padx=(0, px(8)))
         self.btn_settings = self._icon_button(tools, "gear", command=self._open_settings)
-        self.btn_settings.grid(row=0, column=4, padx=(px(theme.SPACE_1), 0))
+        self.btn_settings.grid(row=0, column=4)
 
         self._tip(self.btn_refresh, "重新枚举磁盘（F5）")
         self._tip(self.btn_show_all, "连内置磁盘一起列出；内置磁盘不能执行磁盘操作")
@@ -531,7 +539,10 @@ class MainWindow:
         self._enable(self.btn_eject, usable)
 
     @staticmethod
-    def _enable(button: ttk.Button, enabled: bool) -> None:
+    def _enable(button, enabled: bool) -> None:
+        if isinstance(button, IconButton):
+            button.set_enabled(enabled)
+            return
         button.state(["!disabled"] if enabled else ["disabled"])
 
     # -------------------------------------------------------------- 操作 --
@@ -653,8 +664,9 @@ class MainWindow:
         self.busy = busy
         if text:
             self.status_var.set(text)
-        for button in (self.btn_refresh, self.btn_show_all):
-            button.state(["disabled"] if busy else ["!disabled"])
+        for button in (self.btn_refresh, self.btn_eject, self.btn_help, self.btn_settings):
+            self._enable(button, not busy)
+        self.btn_show_all.state(["disabled"] if busy else ["!disabled"])
         if busy:
             self.spinner.place(x=0, y=self.metrics.px(2), relwidth=1.0)
             self.spinner.start(12)
