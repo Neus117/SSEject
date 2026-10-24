@@ -28,11 +28,12 @@ from datetime import datetime
 from tkinter import ttk
 from typing import Callable, List, Optional
 
-from core import applog, disk_query, diskpart_ops, eject, version
+from core import applog, disk_query, diskpart_ops, eject, settings, version
 from core.disk_query import DiskInfo
 from gui import theme, win32
 from gui.dialog import Dialogs
 from gui.help_window import HelpWindow
+from gui.settings_window import SettingsWindow
 from gui.tooltip import Tooltip
 
 #: 日志最多保留的行数
@@ -54,10 +55,12 @@ class MainWindow:
     def __init__(self, root: tk.Tk, *, admin_state: str = "admin"):
         self.root = root
         self.admin = admin_state == "admin"
-        self.palette = theme.pick_palette()
+        self.user_settings = settings.load()
+        self.palette = theme.pick_palette(self._theme_override())
         self.metrics = theme.Metrics(root)
         self.fonts = theme.Fonts(root)
         theme.apply_ttk_styles(root, self.palette, self.fonts, self.metrics)
+        self._configure_icon_styles()
         self.icon_path = win32.python_icon_path()
         self.dialogs = Dialogs(root, palette=self.palette, metrics=self.metrics,
                                fonts=self.fonts, icon_path=self.icon_path)
@@ -67,6 +70,8 @@ class MainWindow:
         self._alive = True
         self._queue: "queue.Queue[tuple]" = queue.Queue()
         self._tooltips: List[Tooltip] = []
+        self._icon_images = {}
+        self._log_history = []
         self._help: Optional[HelpWindow] = None
 
         self._build_ui()
@@ -108,6 +113,56 @@ class MainWindow:
         self._build_log(self.log_frame, px)
         self._build_status(content, px)
 
+    def _theme_override(self) -> Optional[str]:
+        mode = self.user_settings.get("theme", "system")
+        return None if mode == "system" else mode
+
+    def _icon_size(self) -> int:
+        target = self.metrics.px(16)
+        return min((16, 20, 24, 28, 32, 36, 40, 48),
+                   key=lambda value: (abs(value - target), value))
+
+    def _configure_icon_styles(self) -> None:
+        """图标按钮的底色必须与预渲染 PNG 里烤进去的一致，所以悬停只换描边。"""
+        px = self.metrics.px
+        palette = self.palette
+        style = ttk.Style(self.root)
+        style.configure("Icon.TButton", background=palette.surface,
+                        bordercolor=palette.surface, borderwidth=1,
+                        relief="flat", padding=(px(6), px(4)))
+        style.map("Icon.TButton",
+                  background=[("active", palette.surface), ("pressed", palette.surface)],
+                  bordercolor=[("active", palette.border_strong)],
+                  relief=[("active", "flat")])
+        style.configure("SelectedIcon.TButton", background=palette.surface,
+                        bordercolor=palette.accent, borderwidth=2,
+                        relief="flat", padding=(px(6), px(4)))
+        style.map("SelectedIcon.TButton",
+                  background=[("active", palette.surface), ("pressed", palette.surface)],
+                  bordercolor=[("active", palette.accent)])
+        style.configure("AccentIcon.TButton", background=palette.accent,
+                        bordercolor=palette.accent, borderwidth=1,
+                        relief="flat", padding=(px(18), px(4)))
+        style.map("AccentIcon.TButton",
+                  background=[("active", palette.accent), ("pressed", palette.accent)],
+                  bordercolor=[("active", palette.accent_hover)])
+
+    def _icon_button(self, parent, icon: str, *, command,
+                     accent: bool = False) -> ttk.Button:
+        size = self._icon_size()
+        state = "accent" if accent else "normal"
+        key = (icon, size, state)
+        image = self._icon_images.get(key)
+        if image is None:
+            path = win32.asset_path(
+                "icons", f"{icon}-{size}-{self.palette.name}-{state}.png")
+            image = tk.PhotoImage(master=self.root, file=path) if path else None
+            self._icon_images[key] = image
+        style = "AccentIcon.TButton" if accent else "Icon.TButton"
+        button = ttk.Button(parent, image=image, style=style, command=command)
+        button.image = image
+        return button
+
     def _build_header(self, parent: ttk.Frame, px) -> None:
         header = ttk.Frame(parent)
         header.grid(row=0, column=0, sticky="ew", pady=(0, px(theme.SPACE_2)))
@@ -118,29 +173,59 @@ class MainWindow:
         self.count_label.grid(row=0, column=1, sticky="w", padx=(px(theme.SPACE_2), 0))
 
         # 提示/选中摘要放在标题后面，不再单独占一行
-        self.summary_var = tk.StringVar(value="选中一个可移动磁盘进行操作")
+        self.summary_var = tk.StringVar(value="选中一个可移动磁盘")
         ttk.Label(header, textvariable=self.summary_var,
                   style="Secondary.TLabel").grid(
             row=0, column=2, sticky="w", padx=(px(theme.SPACE_3), px(theme.SPACE_2))
         )
 
-        self.btn_show_all = ttk.Button(
-            header, text="显示所有磁盘", style="Tool.TButton",
-            command=self._toggle_show_all,
-        )
-        self.btn_show_all.grid(row=0, column=3, sticky="e", padx=(0, px(theme.SPACE_2)))
-        self.btn_refresh = ttk.Button(header, text="刷新", command=self.refresh_disks)
-        self.btn_refresh.grid(row=0, column=4, sticky="e", padx=(0, px(theme.SPACE_2)))
-        self.btn_eject = ttk.Button(header, text="弹出", style="Accent.TButton",
-                                    command=lambda: self._start_action("eject"))
-        self.btn_eject.grid(row=0, column=5, sticky="e", padx=(0, px(theme.SPACE_2)))
-        self.btn_help = ttk.Button(header, text="帮助", command=self.show_help)
-        self.btn_help.grid(row=0, column=6, sticky="e")
+        tools = ttk.Frame(header)
+        tools.grid(row=0, column=3, sticky="e")
+
+        self.btn_show_all = ttk.Button(tools, text="ALL", style="Tool.TButton",
+                                       command=self._toggle_show_all)
+        self.btn_show_all.grid(row=0, column=0, padx=(0, px(theme.SPACE_1)))
+        self.btn_refresh = self._icon_button(tools, "refresh", command=self.refresh_disks)
+        self.btn_refresh.grid(row=0, column=1, padx=(0, px(theme.SPACE_1)))
+        # 弹出是主操作：点击区域加宽，图标本身保持原比例（PNG 是正方形）
+        self.btn_eject = self._icon_button(tools, "eject", accent=True,
+                                           command=lambda: self._start_action("eject"))
+        self.btn_eject.grid(row=0, column=2, padx=(px(theme.SPACE_2), px(theme.SPACE_1)))
+        self.btn_help = self._icon_button(tools, "help", command=self.show_help)
+        self.btn_help.grid(row=0, column=3, padx=(0, px(theme.SPACE_1)))
+        self.btn_settings = self._icon_button(tools, "gear", command=self._open_settings)
+        self.btn_settings.grid(row=0, column=4, padx=(px(theme.SPACE_1), 0))
 
         self._tip(self.btn_refresh, "重新枚举磁盘（F5）")
         self._tip(self.btn_show_all, "连内置磁盘一起列出；内置磁盘不能执行磁盘操作")
-        self._tip(self.btn_eject, "弹出磁盘；被其他程序占用时自动解除占用，失败会说明原因")
+        self._tip(self.btn_eject, "弹出磁盘；被占用时等系统释放并自动重试，失败会说明原因")
         self._tip(self.btn_help, "使用说明")
+        self._tip(self.btn_settings, "设置")
+
+    def _open_settings(self) -> None:
+        if self.busy:
+            return
+        SettingsWindow(self.root, palette=self.palette, metrics=self.metrics,
+                       fonts=self.fonts, icon_path=self.icon_path,
+                       theme_mode=self.user_settings.get("theme", "system"),
+                       on_theme=self._apply_theme)
+
+    def _apply_theme(self, mode: str) -> None:
+        self.user_settings = settings.update(theme=mode)
+        self.palette = theme.pick_palette(self._theme_override())
+        theme.apply_ttk_styles(self.root, self.palette, self.fonts, self.metrics)
+        self._configure_icon_styles()
+        for child in self.root.winfo_children():
+            child.destroy()
+        self._build_ui()
+        self._refresh_chrome()
+        self._restore_log()
+        self.refresh_disks()
+
+    def _restore_log(self) -> None:
+        history, self._log_history = self._log_history, []
+        for message, level, with_time in history:
+            self._log(message, level, with_time=with_time)
 
     def _build_table(self, parent: ttk.Frame, px) -> None:
         wrapper = ttk.Frame(parent)
@@ -516,6 +601,7 @@ class MainWindow:
 
     # -------------------------------------------------------------- 日志 --
     def _log(self, message: str, level: str = "info", *, with_time: bool = True) -> None:
+        self._log_history.append((message, level, with_time))
         applog.write(level, message)
         if not self._alive:
             return
@@ -535,6 +621,7 @@ class MainWindow:
             pass
 
     def _clear_log(self) -> None:
+        self._log_history.clear()
         try:
             self.log_text.configure(state="normal")
             self.log_text.delete("1.0", "end")

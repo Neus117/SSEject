@@ -91,7 +91,6 @@ class HelpWindow:
         text.insert("end",
                     f"{version.APP_NAME} {version.version_string()} · {version.LICENSE_NAME} 许可证\n",
                     ("path",))
-        text.insert("end", "命名含义：Sure & Swift Eject（稳、快地把盘弹出来）。\n", ("path",))
         text.insert("end", version.PROJECT_URL + "\n", ("link",))
         text.tag_bind("link", "<Button-1>",
                       lambda _event: webbrowser.open(version.PROJECT_URL))
