@@ -49,10 +49,11 @@ REFRESH_ARC = (42, 325)
 REFRESH_TAIL = ((0.628, 0.370), (0.886, 0.370), (0.886, 0.113))  # 横尾端 → 箭尖 → 竖顶端
 
 #: 磁盘图标（“显示全部磁盘”按钮）的比例，见 :func:`_disk`
+DISK_SCALE = 1.20                                  # 整体放大（笔画一起缩放）
 DISK_LEFT, DISK_TOP, DISK_RIGHT, DISK_BOTTOM = 0.110, 0.160, 0.890, 0.840
 DISK_STROKE, DISK_RADIUS = 0.100, 0.170
-DISK_SLOT = (0.255, 0.520, 0.500, 0.060)   # 插入槽：x0, x1, y, 线宽
-DISK_LED_X, DISK_LED_R = 0.680, 0.060      # 指示灯：圆心 x（垂直居中）, 半径
+DISK_SLOT = (0.255, 0.520, 0.380, 0.060)   # 插入槽：x0, x1, y(机身的上 1/3), 线宽
+DISK_LED_X, DISK_LED_R = 0.680, 0.060      # 指示灯：圆心 x（与槽同一行）, 半径
 
 
 def _gear(draw, box, ink, background):
@@ -101,25 +102,28 @@ def _refresh(draw, box, ink, _background):
 def _disk(draw, box, ink, _background):
     """简易磁盘：圆角机身 + 插入槽 + 指示灯。
 
-    全部比例写成常量，一次只调一档：机身墨迹 0.78×0.68、线宽 0.10（与刷新同一档）、
-    圆角 0.17；机身中线上一道插入槽（0.255→0.520）和右侧指示灯（直径 0.12）。
-    按 35px（175% DPI 下的实际按钮图标）算：机身 27×24 px，墨迹 29×25，
-    与齿轮 29×27、刷新 27×26 同级（实测像素数 450 vs 424，见提交说明）。
+    全部比例写成常量，一次只调一档；``DISK_SCALE`` 是整体缩放（用户：“现在太小了，
+    放大 20%”），笔画跟着一起缩放，等于把整枚图标画大，比例不变。
+    机身墨迹 0.78×0.68、线宽 0.10（与刷新同一档）、圆角 0.17；插入槽 y=0.380
+    （落在机身的**上 1/3**，用户要求“横向的感叹号稍微往上移”），槽与指示灯同一行。
+    按 35px（175% DPI 下的实际按钮图标）算：墨迹约 33×29 px。
     """
     x0, y0, x1, y1 = box
-    size = x1 - x0
+    size = (x1 - x0) * DISK_SCALE          # 放大后的绘图边长
+    ox = (x0 + x1) / 2.0 - size / 2.0      # 仍然居中
+    oy = (y0 + y1) / 2.0 - size / 2.0
     stroke = max(1, int(round(size * DISK_STROKE)))
-    body = (x0 + size * DISK_LEFT, y0 + size * DISK_TOP,
-            x0 + size * DISK_RIGHT, y0 + size * DISK_BOTTOM)
+    body = (ox + size * DISK_LEFT, oy + size * DISK_TOP,
+            ox + size * DISK_RIGHT, oy + size * DISK_BOTTOM)
     draw.rounded_rectangle(body, radius=int(round(size * DISK_RADIUS)),
                            outline=ink, width=stroke)
     slot_x0, slot_x1, slot_y, slot_w = DISK_SLOT
-    mid_y = y0 + size * slot_y
-    draw.line((x0 + size * slot_x0, mid_y, x0 + size * slot_x1, mid_y),
+    row_y = oy + size * slot_y
+    draw.line((ox + size * slot_x0, row_y, ox + size * slot_x1, row_y),
               fill=ink, width=max(1, int(round(size * slot_w))))
     led_r = size * DISK_LED_R
-    led_cx = x0 + size * DISK_LED_X
-    draw.ellipse((led_cx - led_r, mid_y - led_r, led_cx + led_r, mid_y + led_r),
+    led_cx = ox + size * DISK_LED_X
+    draw.ellipse((led_cx - led_r, row_y - led_r, led_cx + led_r, row_y + led_r),
                  fill=ink)
 
 
