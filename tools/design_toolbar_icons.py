@@ -36,6 +36,12 @@ ACCENT_ICONS = {"eject"}
 PLAIN_STATES = ("normal", "hover")
 SUPERSAMPLE = 16
 
+#: 磁盘图标（“显示全部磁盘”按钮）的比例，见 :func:`_disk`
+DISK_LEFT, DISK_TOP, DISK_RIGHT, DISK_BOTTOM = 0.110, 0.160, 0.890, 0.840
+DISK_STROKE, DISK_RADIUS = 0.100, 0.170
+DISK_SLOT = (0.255, 0.520, 0.500, 0.060)   # 插入槽：x0, x1, y, 线宽
+DISK_LED_X, DISK_LED_R = 0.680, 0.060      # 指示灯：圆心 x（垂直居中）, 半径
+
 
 def _gear(draw, box, ink, background):
     x0, y0, x1, y1 = box
@@ -77,6 +83,31 @@ def _refresh(draw, box, ink, _background):
     for px_, py_ in ((start_x, bar_y), (tail_x, bar_y), (tail_x, top_y),
                      (tail_x, bottom_y)):
         draw.ellipse((px_ - half, py_ - half, px_ + half, py_ + half), fill=ink)
+
+
+def _disk(draw, box, ink, _background):
+    """简易磁盘：圆角机身 + 插入槽 + 指示灯。
+
+    全部比例写成常量，一次只调一档：机身墨迹 0.78×0.68、线宽 0.10（与刷新同一档）、
+    圆角 0.17；机身中线上一道插入槽（0.255→0.520）和右侧指示灯（直径 0.12）。
+    按 35px（175% DPI 下的实际按钮图标）算：机身 27×24 px，墨迹 29×25，
+    与齿轮 29×27、刷新 27×26 同级（实测像素数 450 vs 424，见提交说明）。
+    """
+    x0, y0, x1, y1 = box
+    size = x1 - x0
+    stroke = max(1, int(round(size * DISK_STROKE)))
+    body = (x0 + size * DISK_LEFT, y0 + size * DISK_TOP,
+            x0 + size * DISK_RIGHT, y0 + size * DISK_BOTTOM)
+    draw.rounded_rectangle(body, radius=int(round(size * DISK_RADIUS)),
+                           outline=ink, width=stroke)
+    slot_x0, slot_x1, slot_y, slot_w = DISK_SLOT
+    mid_y = y0 + size * slot_y
+    draw.line((x0 + size * slot_x0, mid_y, x0 + size * slot_x1, mid_y),
+              fill=ink, width=max(1, int(round(size * slot_w))))
+    led_r = size * DISK_LED_R
+    led_cx = x0 + size * DISK_LED_X
+    draw.ellipse((led_cx - led_r, mid_y - led_r, led_cx + led_r, mid_y + led_r),
+                 fill=ink)
 
 
 def _help(draw, box, ink, _background):
@@ -164,7 +195,7 @@ def _moon(draw, box, ink, _background):
 
 PAINTERS = {
     "gear": _gear, "refresh": _refresh, "help": _help, "eject": _eject,
-    "monitor": _monitor, "sun": _sun, "moon": _moon,
+    "monitor": _monitor, "sun": _sun, "moon": _moon, "disk": _disk,
 }
 
 

@@ -204,9 +204,6 @@ class Fonts:
         # 单字符图标（如帮助的"?"）：字号按图标视觉高度给，和齿轮等大
         self.glyph = tkfont.Font(root=root, name="QfeGlyph", family=self.family,
                                  size=-self._glyph_pixels(root), weight="bold")
-        # ALL 这类文字图标：字形放大由 Canvas 承担，不会再撑大按钮
-        self.all_text = tkfont.Font(root=root, name="QfeAllText", family=self.family,
-                                    size=FONT_BODY_PT + 1, weight="bold")
         self.mono = tkfont.Font(root=root, name="QfeMono", family="Consolas",
                                 size=FONT_SMALL_PT)
         # 让没有显式指定字体的控件（tk.Text / 原生对话框）跟随同一套
@@ -326,25 +323,6 @@ def apply_ttk_styles(root: tk.Misc, palette: Palette, fonts: Fonts,
         lightcolor=palette.surface,
         darkcolor=palette.surface,
         padding=(px(10), px(5)),
-    )
-    # 加粗版：ALL 与帮助的"?"用同一款，高度与其它工具按钮完全一致
-    style.configure(
-        "ToolGlyph.TButton",
-        width=0,
-        background=palette.surface,
-        foreground=palette.text,
-        bordercolor=palette.border,
-        lightcolor=palette.surface,
-        darkcolor=palette.surface,
-        padding=(px(10), px(0)),
-        font=fonts.glyph,
-    )
-    style.map(
-        "ToolGlyph.TButton",
-        background=[("disabled", palette.background), ("pressed", palette.surface_hover),
-                    ("active", palette.surface_hover)],
-        foreground=[("disabled", palette.text_disabled)],
-        bordercolor=[("disabled", palette.border), ("active", palette.border_strong)],
     )
     style.configure(
         "ToolBold.TButton",

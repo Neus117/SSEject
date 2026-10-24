@@ -61,7 +61,6 @@ class MainWindow:
         self.metrics = theme.Metrics(root)
         self.fonts = theme.Fonts(root)
         theme.apply_ttk_styles(root, self.palette, self.fonts, self.metrics)
-        self._configure_icon_styles()
         self.icon_path = win32.python_icon_path()
         self.dialogs = Dialogs(root, palette=self.palette, metrics=self.metrics,
                                fonts=self.fonts, icon_path=self.icon_path)
@@ -124,40 +123,10 @@ class MainWindow:
         return min((20, 25, 30, 35, 40, 45, 50, 60),
                    key=lambda value: (abs(value - target), value))
 
-    def _configure_icon_styles(self) -> None:
-        """图标按钮：高度对齐文字按钮，悬停换一张同底色的预渲染图。"""
-        px = self.metrics.px
-        palette = self.palette
-        style = ttk.Style(self.root)
-        probe = ttk.Button(self.root, text="ALL", style="ToolBold.TButton")
-        probe.update_idletasks()
-        target_height = probe.winfo_reqheight()
-        probe.destroy()
-        pad_y = max(1, (target_height - self._icon_size()) // 2)
-        style.configure("Icon.TButton", background=palette.surface,
-                        bordercolor=palette.surface, borderwidth=1,
-                        relief="flat", padding=(px(8), pad_y))
-        style.map("Icon.TButton",
-                  background=[("active", palette.surface), ("pressed", palette.surface)],
-                  bordercolor=[("active", palette.border_strong)],
-                  relief=[("active", "flat")])
-        style.configure("SelectedIcon.TButton", background=palette.surface,
-                        bordercolor=palette.accent, borderwidth=2,
-                        relief="flat", padding=(px(8), pad_y))
-        style.map("SelectedIcon.TButton",
-                  background=[("active", palette.surface), ("pressed", palette.surface)],
-                  bordercolor=[("active", palette.accent)])
-        style.configure("AccentIcon.TButton", background=palette.accent,
-                        bordercolor=palette.accent, borderwidth=1,
-                        relief="flat", padding=(px(20), pad_y))
-        style.map("AccentIcon.TButton",
-                  background=[("active", palette.accent), ("pressed", palette.accent)],
-                  bordercolor=[("active", palette.accent_hover)])
-
     def _button_height(self) -> int:
-        """图标按钮的高度 = 文字按钮的实际高度（只量一次）。"""
+        """图标按钮的高度 = 文字按钮的实际高度（只量一次；用真实的文字按钮做尺子）."""
         if getattr(self, "_btn_height", None) is None:
-            probe = ttk.Button(self.root, text="ALL", style="Tool.TButton")
+            probe = ttk.Button(self.root, text="清空", style="Tool.TButton")
             probe.update_idletasks()
             self._btn_height = probe.winfo_reqheight()
             probe.destroy()
@@ -207,12 +176,10 @@ class MainWindow:
         tools = ttk.Frame(header)
         tools.grid(row=0, column=3, sticky="e")
 
-        self.btn_show_all = IconButton(
-            tools, palette=self.palette, metrics=self.metrics, icon_paths={},
-            command=self._toggle_show_all, width=self._button_height() + px(24),
-            height=self._button_height(), fonts=self.fonts,
-            text="ALL", font=self.fonts.all_text,
-        )
+        # 连内置磁盘一起列出：自绘磁盘图标（原来是 "ALL" 文字按钮，字形和其他
+        # 图标不搭；现在与刷新/弹出/齿轮同一套 PNG、同一个尺寸）
+        self.btn_show_all = self._icon_button(tools, "disk",
+                                              command=self._toggle_show_all)
         self.btn_show_all.grid(row=0, column=0, padx=(0, px(8)))
         self.btn_refresh = self._icon_button(tools, "refresh", command=self.refresh_disks)
         self.btn_refresh.grid(row=0, column=1, padx=(0, px(8)))
@@ -248,7 +215,6 @@ class MainWindow:
         self.user_settings = settings.update(theme=mode)
         self.palette = theme.pick_palette(self._theme_override())
         theme.apply_ttk_styles(self.root, self.palette, self.fonts, self.metrics)
-        self._configure_icon_styles()
         self.dialogs = Dialogs(self.root, palette=self.palette, metrics=self.metrics,
                                fonts=self.fonts, icon_path=self.icon_path)
         for child in self.root.winfo_children():
