@@ -45,6 +45,12 @@ WINDOW_MIN_HEIGHT = 380
 FONT_BODY_PT = 10
 FONT_SMALL_PT = 9
 
+#: 单字符图标（帮助的“?”）字号：正文 +5.5pt。tkinter 的 size 只能是整数，写 15.5
+#: 会抛 ``TclError: expected integer but got "15.5"``（日志实证，窗口标题会停在
+#: ``tk``）；所以按当前 DPI 换成整数**像素**字号——Tk 内部本来也是这么把 point
+#: 换成像素的（168 DPI 下 16pt → 37px），换出来的字不会随机器缩放走样。
+GLYPH_PT = FONT_BODY_PT + 5.5
+
 _FONT_STACK = (
     "Microsoft YaHei UI",
     "Microsoft YaHei",
@@ -197,7 +203,7 @@ class Fonts:
                                 size=FONT_BODY_PT, weight="bold")
         # 单字符图标（如帮助的"?"）：字号按图标视觉高度给，和齿轮等大
         self.glyph = tkfont.Font(root=root, name="QfeGlyph", family=self.family,
-                                 size=FONT_BODY_PT + 6, weight="bold")
+                                 size=-self._glyph_pixels(root), weight="bold")
         # ALL 这类文字图标：字形放大由 Canvas 承担，不会再撑大按钮
         self.all_text = tkfont.Font(root=root, name="QfeAllText", family=self.family,
                                     size=FONT_BODY_PT + 1, weight="bold")
@@ -210,6 +216,15 @@ class Fonts:
                 named.configure(family=self.family, size=FONT_BODY_PT)
             except (tk.TclError, KeyError):  # pragma: no cover
                 pass
+
+    @staticmethod
+    def _glyph_pixels(root: tk.Misc) -> int:
+        """``GLYPH_PT`` 换算成整数像素字号（Tk 的 point 字号必须是整数）。"""
+        try:
+            scaling = float(root.tk.call("tk", "scaling"))
+        except (tk.TclError, ValueError):  # pragma: no cover - 极端精简的 Tk 构建
+            scaling = 96.0 / 72.0
+        return max(1, int(round(GLYPH_PT * scaling)))
 
     @staticmethod
     def _pick_family(root: tk.Misc) -> str:

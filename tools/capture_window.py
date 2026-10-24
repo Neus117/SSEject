@@ -122,6 +122,7 @@ def find_windows(title_part: str, pid: int = 0) -> List[Tuple[int, str]]:
 
 
 def _grab(hwnd: int, rect: RECT, foreground: bool = False) -> Tuple[Image.Image, str]:
+    hwnd = getattr(hwnd, "value", hwnd)  # 允许传入已经包好的 HWND 句柄
     width = rect.right - rect.left
     height = rect.bottom - rect.top
     if width <= 0 or height <= 0:
