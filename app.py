@@ -119,6 +119,8 @@ def run_diagnostics(output_path: str) -> int:
         root.update()
         result["rows_show_all"] = len(app.tree.get_children())
         result["icon_path"] = app.icon_path
+        # 语言按钮 CN/EN 的生效字号（pt）：换字号是常见调整，门禁里留一个可回读的数
+        result["lang_pt"] = app.fonts.lang_text.actual()["size"]
         if app.icon_path:
             result["icon_handles"] = [
                 win32.load_icon_handle(app.icon_path, 16),

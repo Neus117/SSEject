@@ -45,6 +45,12 @@ WINDOW_MIN_HEIGHT = 380
 FONT_BODY_PT = 10
 FONT_SMALL_PT = 9
 
+#: 设置窗「语言」按钮里 CN / EN 的字号（正文家族 + 加粗）。
+#: 给绝对值而不是 ``FONT_BODY_PT + N``：全仓搜 ``LANG_PT`` 就能找到，
+#: 不用翻实现。11pt 下墨迹 34×20，与设置窗主题图标（显示器 31×25、月亮 24×31）同级；
+#: 12pt 是 36×22、14pt 是 43×25（偏大）。
+LANG_PT = 11
+
 #: 单字符图标（帮助的“?”）字号与字重。要的是“比 normal 粗、比 bold 细”的中间态：
 #: 微软雅黑只有 normal/bold 两档，所以这一枚改用真正带 Semibold 档的家族（单个 ASCII
 #: 字形，不涉及中文回退）。Semibold 的字面比同 pt 的雅黑小一档，所以字号按实测往上
@@ -217,11 +223,9 @@ class Fonts:
                                  size=-self.glyph_px, weight=glyph_weight)
         self.mono = tkfont.Font(root=root, name="QfeMono", family="Consolas",
                                 size=FONT_SMALL_PT)
-        # 语言按钮的“CN / EN”：正文字体 + 加粗。字号按**墨迹**对齐主题图标：
-        # +4pt（14pt）时 CN/EN 墨迹 43×25，比图标（24~35 宽）大一圈；
-        # +2pt（12pt）是 36×22，与图标同级，所以用 +2。
+        # 语言按钮的“CN / EN”：正文家族 + 加粗，字号见 LANG_PT
         self.lang_text = tkfont.Font(root=root, name="QfeLang", family=self.family,
-                                     size=FONT_BODY_PT + 2, weight="bold")
+                                     size=LANG_PT, weight="bold")
         # 让没有显式指定字体的控件（tk.Text / 原生对话框）跟随同一套
         for name in ("TkDefaultFont", "TkTextFont", "TkMenuFont", "TkHeadingFont"):
             try:
