@@ -20,10 +20,13 @@ from gui.iconbutton import IconButton
 from gui.tooltip import Tooltip
 
 #: 逻辑尺寸与间距（全部是 4 的倍数；`GROUP_GAP` = 4n，也是「关闭」的左间距）
-#: 窗口宽 432：4n 间距下「主题 + 语言 + 关闭」需要 384 逻辑宽（152 + 40 + 98 + 40 + 54），
-#: 420 减去左右各 24 只剩 372，差 12 —— 要么窗口宽 12、要么左右边距缩到 16。
-#: 取前者：关闭按钮的位置不动、左右边距仍然都是 24。
-WINDOW_WIDTH = 432
+#: 「关闭」按固定宽度参与布局：中英文文案宽度不同（关闭 / Close），不定宽的话
+#: 换语言会让它自己变宽、把右边距吃掉（实测英文 39 px vs 中文 53 px）。
+CLOSE_WIDTH = 62
+
+#: 窗口宽 440 = 左右各 24 + 主题 152 + 4n 40 + 语言 98 + 4n 40 + 关闭 62。
+#: 420 装不下 4n 间距（旧值 420 时右边距只剩 12），所以窗口加宽，左右边距保持 24。
+WINDOW_WIDTH = 440
 PAD_X = 24
 PAD_TOP = 20
 PAD_BOTTOM = 18
@@ -129,11 +132,25 @@ class SettingsWindow:
             button.grid(row=0, column=index, padx=(0 if index == 0 else px(ICON_GAP), 0))
             self.lang_buttons[value] = button
 
-        # ---- 关闭（横向间距与类之间一致：语言类右边缘 + 4n）----------------
-        ttk.Button(layout, text=L("关闭", "Close"), style="Accent.TButton",
-                   command=self.close).grid(
-            row=1, column=2, sticky="w",
-            padx=(px(GROUP_GAP), 0), pady=(px(FOOTER_GAP), 0))
+        # ---- 关闭（横向间距与类之间一致：语言类右边缘 + 4n；宽度钉死，换语言不变）----
+        # 用固定尺寸的格子装按钮：ttk 按钮的自然宽度随文案变（关闭 94 / Close 108 px），
+        # 不钉住的话英文会把右边距吃掉（实测右边距 39 vs 左边距 54）。
+        # 先量一个同款按钮的“自然尺寸”，格子取「钉住的宽」与自然宽的最大值、高用自然高，
+        # 这样中文（关闭 94 px）与英文（Close 108 px）最终都是同一个格子、同一行高
+        probe = ttk.Button(self.window, text=L("关闭", "Close"), style="Accent.TButton")
+        probe.update_idletasks()
+        cell_w = max(px(CLOSE_WIDTH), probe.winfo_reqwidth())
+        cell_h = probe.winfo_reqheight()
+        probe.destroy()
+        close_cell = ttk.Frame(layout, width=cell_w, height=cell_h)
+        close_cell.grid_propagate(False)
+        close_cell.rowconfigure(0, weight=1)
+        close_cell.columnconfigure(0, weight=1)
+        close_cell.grid(row=1, column=2, sticky="w",
+                        padx=(px(GROUP_GAP), 0), pady=(px(FOOTER_GAP), 0))
+        # 注意要用 grid 铺满（pack 的传播由 pack_propagate 控制，grid_propagate(False) 管不到它）
+        ttk.Button(close_cell, text=L("关闭", "Close"), style="Accent.TButton",
+                   command=self.close).grid(row=0, column=0, sticky="nsew")
 
         win32.set_window_icon(window, icon_path)
         win32.set_dark_titlebar(window, palette.is_dark)
