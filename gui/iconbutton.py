@@ -100,5 +100,4 @@ class IconButton(tk.Canvas):
 
     def set_selected(self, selected: bool) -> None:
         self.selected = selected
-        self.accent = accent
         self._paint()

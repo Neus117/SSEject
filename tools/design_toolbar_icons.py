@@ -15,7 +15,7 @@ HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(HERE, "assets", "icons")
 
 SCALES = (1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 3.0)
-BASE = 18
+BASE = 20
 
 THEMES = {
     "light": {
@@ -54,24 +54,21 @@ def _gear(draw, box, ink, background):
 
 
 def _refresh(draw, box, ink, _background):
-    """参考图：粗圆环（缺口在右）+ 右上折角箭头（竖＋横两段粗线）。"""
+    """粗圆环（缺口在右）+ 右上折角箭头：横线在上、竖线在右，圆头收尾。"""
     x0, y0, x1, y1 = box
     size = x1 - x0
     cx, cy = (x0 + x1) / 2.0, (y0 + y1) / 2.0
-    radius = size * 0.335
-    width = max(1.6, size * 0.135)
+    radius = size * 0.345
+    width = max(1.8, size * 0.150)
     draw.arc((cx - radius, cy - radius, cx + radius, cy + radius),
-             start=325, end=215, fill=ink, width=int(round(width)))
+             start=320, end=200, fill=ink, width=int(round(width)))
     half = width / 2.0
-    # 箭头：右侧竖线 + 上端向左的横线，构成参考图里的折角
-    right_x = cx + radius + size * 0.055
-    top_y = cy - size * 0.285
-    draw.line((right_x, top_y, right_x, cy + size * 0.02), fill=ink,
-              width=int(round(width)))
-    draw.line((cx + size * 0.055, top_y, right_x, top_y), fill=ink,
-              width=int(round(width)))
-    for px_, py_ in ((right_x, top_y), (right_x, cy + size * 0.02),
-                     (cx + size * 0.055, top_y)):
+    right_x = cx + radius
+    top_y = cy - size * 0.300
+    draw.line((right_x, top_y, right_x, cy - size * 0.02), fill=ink, width=int(round(width)))
+    draw.line((cx + size * 0.02, top_y, right_x, top_y), fill=ink, width=int(round(width)))
+    for px_, py_ in ((right_x, top_y), (right_x, cy - size * 0.02),
+                     (cx + size * 0.02, top_y)):
         draw.ellipse((px_ - half, py_ - half, px_ + half, py_ + half), fill=ink)
 
 
@@ -107,11 +104,8 @@ def _eject(draw, box, ink, _background=None, app_icon=None):
     right = (x0 + size * 0.845, y0 + size * 0.500)
     cx = (apex[0] + left[0] + right[0]) / 3.0
     cy = (apex[1] + left[1] + right[1]) / 3.0
-    inner = [(cx + (x - cx) * 0.93, cy + (y - cy) * 0.93) for x, y in (apex, left, right)]
-    draw.polygon(inner, fill=ink)
-    radius = size * 0.060
-    for x, y in inner[1:]:
-        draw.ellipse((x - radius, y - radius, x + radius, y + radius), fill=ink)
+    # 只填多边形：不再在底角补圆，免得出现两个"肿瘤"般的凸起
+    draw.polygon((apex, left, right), fill=ink)
     bar = (x0 + size * 0.155, y0 + size * 0.675,
            x0 + size * 0.845, y0 + size * 0.855)
     draw.rounded_rectangle(bar, radius=int(round(size * 0.055)), fill=ink)

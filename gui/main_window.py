@@ -119,8 +119,8 @@ class MainWindow:
         return None if mode == "system" else mode
 
     def _icon_size(self) -> int:
-        target = self.metrics.px(18)
-        return min((18, 22, 27, 32, 36, 40, 45, 54),
+        target = self.metrics.px(20)
+        return min((20, 25, 30, 35, 40, 45, 50, 60),
                    key=lambda value: (abs(value - target), value))
 
     def _configure_icon_styles(self) -> None:
@@ -215,7 +215,7 @@ class MainWindow:
         self.btn_eject = self._icon_button(tools, "eject", accent=True,
                                            command=lambda: self._start_action("eject"))
         self.btn_eject.grid(row=0, column=2, padx=(0, px(8)))
-        self.btn_help = ttk.Button(tools, text="?", style="ToolBold.TButton",
+        self.btn_help = ttk.Button(tools, text="?", style="ToolGlyph.TButton",
                                    command=self.show_help)
         self.btn_help.grid(row=0, column=3, padx=(0, px(8)))
         self.btn_settings = self._icon_button(tools, "gear", command=self._open_settings)

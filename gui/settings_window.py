@@ -110,8 +110,8 @@ class SettingsWindow:
             "icons", f"{name}-{size}-{self.palette.name}-{state}.png")
 
     def _icon_size(self) -> int:
-        target = self.metrics.px(18)
-        return min((16, 20, 24, 28, 32, 36, 40, 48),
+        target = self.metrics.px(20)
+        return min((20, 25, 30, 35, 40, 45, 50, 60),
                    key=lambda value: (abs(value - target), value))
 
     def _refresh_selection(self) -> None:
