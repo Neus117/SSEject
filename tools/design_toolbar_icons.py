@@ -43,7 +43,8 @@ SUPERSAMPLE = 16
 #:   * 缺口在右：环从 42° 到 323°（参考图实测），尾巴压住 323° 那一端
 #:   * 尾巴是一笔折线，**尖端落在右下角**（参考图：竖线 x 0.898..1.00、横线 y
 #:     0.299..0.398；角落即箭尖），两条腿分别向左、向上
-REFRESH_OUTER = 0.430                              # 环外半径（图标方框为单位）
+REFRESH_SCALE = 0.90                               # 整体缩小 10%（笔画一起缩放）
+REFRESH_OUTER = 0.430                              # 环外半径（未缩放的图标方框为单位）
 REFRESH_STROKE = 0.088
 REFRESH_ARC = (42, 325)
 REFRESH_TAIL = ((0.628, 0.370), (0.886, 0.370), (0.886, 0.113))  # 横尾端 → 箭尖 → 竖顶端
@@ -80,18 +81,20 @@ def _refresh(draw, box, ink, _background):
     竖腿与环的上端**叠在一起**，看起来是连着的（参考图就是这样连的）。
     折线两个自由端补圆头，等于 round cap；折线用 ``joint="curve"``，箭尖是圆的。
 
-    比例见 ``REFRESH_*`` 常量，全部由参考图 374×374 墨迹实测后按 0.86 映射得到。
+    比例见 ``REFRESH_*`` 常量，全部由参考图 374×374 墨迹实测后按 0.86 映射得到；
+    ``REFRESH_SCALE`` 是整体缩放（用户：“有点大了，请缩小 10%”），笔画一起缩放。
     """
     x0, y0, x1, y1 = box
-    size = x1 - x0
+    size = (x1 - x0) * REFRESH_SCALE
     cx, cy = (x0 + x1) / 2.0, (y0 + y1) / 2.0
+    ox, oy = cx - size / 2.0, cy - size / 2.0
     width = max(1, int(round(size * REFRESH_STROKE)))
     # Pillow 的 arc 描边是从给定椭圆框**向内**长出来的（不像 line 那样居中），
     # 所以椭圆半径直接给外径，描边才会落在 REFRESH_OUTER 与 OUTER-STROKE 之间。
     radius = size * REFRESH_OUTER
     draw.arc((cx - radius, cy - radius, cx + radius, cy + radius),
              start=REFRESH_ARC[0], end=REFRESH_ARC[1], fill=ink, width=width)
-    points = [(x0 + size * px_, y0 + size * py_) for px_, py_ in REFRESH_TAIL]
+    points = [(ox + size * px_, oy + size * py_) for px_, py_ in REFRESH_TAIL]
     draw.line(points, fill=ink, width=width, joint="curve")
     half = width / 2.0
     for point in (points[0], points[-1]):  # 两个自由端补圆头
